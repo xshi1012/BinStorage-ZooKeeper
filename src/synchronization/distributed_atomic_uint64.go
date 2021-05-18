@@ -32,7 +32,9 @@ func (self *DistriButedAtomicUint64) Init() error {
 		return nil
 	}
 
-	_, e = createRecursive(self.conn, fullPath, []byte{}, 0, zk.WorldACL(zk.PermAll))
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(1))
+	_, e = createRecursive(self.conn, fullPath, b, 0, zk.WorldACL(zk.PermAll))
 	return e
 }
 
