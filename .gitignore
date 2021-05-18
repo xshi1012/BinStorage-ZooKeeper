@@ -18,3 +18,8 @@
 .idea/
 
 **/github.com
+
+bin/
+pkg/
+
+**/*.DS_Store
