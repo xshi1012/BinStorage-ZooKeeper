@@ -1,6 +1,7 @@
-package synchronization
+package main
 
 import (
+	"BinStorageZK/src/synchronization"
 	"fmt"
 	"github.com/go-zookeeper/zk"
 	"time"
@@ -21,7 +22,7 @@ func test_clock(finish chan<- bool) {
 		panic(e)
 	}
 
-	clock := NewDistributedAtomicLong(conn, "clock", "/clock")
+	clock := synchronization.NewDistributedAtomicLong(conn, "clock", "/clock")
 	e = clock.Init()
 	if e != nil {
 		panic(e)
