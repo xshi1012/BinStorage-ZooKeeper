@@ -16,7 +16,7 @@ func createRecursive(conn *zk.Conn, path string, data []byte, flags int32, acl [
 	if e == zk.ErrNoNode {
 		parts := strings.Split(path, "/")
 		pth := ""
-		for _, p := range parts[1:] {
+		for i, p := range parts[1:] {
 			var exists bool
 			pth += "/" + p
 			exists, _, e = conn.Exists(pth)
@@ -26,7 +26,12 @@ func createRecursive(conn *zk.Conn, path string, data []byte, flags int32, acl [
 				continue
 			}
 
-			_, e = conn.Create(pth, []byte{}, 0, acl)
+			b := []byte{}
+			if i == len(parts) - 2 {
+				b = data
+			}
+
+			_, e = conn.Create(pth, b, 0, acl)
 			if e != nil && e != zk.ErrNodeExists {
 				return "", e
 			}

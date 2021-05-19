@@ -35,6 +35,9 @@ func (self *DistriButedAtomicUint64) Init() error {
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, uint64(1))
 	_, e = createRecursive(self.conn, fullPath, b, 0, zk.WorldACL(zk.PermAll))
+	if e == zk.ErrNodeExists {
+		return nil
+	}
 	return e
 }
 
