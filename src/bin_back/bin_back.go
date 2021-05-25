@@ -45,18 +45,8 @@ func (self *BinBack) Run() error {
 		return e
 	}
 
-	if self.config.Ready != nil {
-		self.config.Ready <- true
-	}
-
 	groupMember := synchronization.NewGroupMember(conn, GroupPath, self.config.Addr)
 	_, e = groupMember.Join()
-	go groupMember.Listen(func([]string){
-		
-	})
-
-	e = http.Serve(l, server)
-
 	if e != nil {
 		if self.config.Ready != nil {
 			self.config.Ready <- false
@@ -64,6 +54,15 @@ func (self *BinBack) Run() error {
 		return e
 	}
 
+	go groupMember.Listen(func([]string){
+		panic("todo")
+	})
+	
+	if self.config.Ready != nil {
+		self.config.Ready <- true
+	}
+
+	e = http.Serve(l, server)
 
 	return e
 }
