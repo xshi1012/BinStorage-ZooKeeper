@@ -60,7 +60,9 @@ func (self *GroupMember) Listen(callback func([]string)) error {
 
 func (self *GroupMember) GetCurrentMembers() ([]string, error) {
 	children, _, e := self.conn.Children(self.groupPath)
-	if e != nil {
+	if e == zk.ErrNoNode {
+		return make([]string, 0), nil
+	} else if e != nil {
 		return nil, e
 	}
 
