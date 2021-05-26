@@ -11,3 +11,11 @@ type BackConfig struct {
 	Ready chan<- bool   // send a value when server is ready
 	Keepers []string    // list of zookeeper servers
 }
+
+const (
+	Delimiter = "::"
+	GroupPath = "/trib/backs"
+	ServiceName = "BinBackRPC"
+	ServiceClocksPath = "/trib/clocks"
+	ServiceClockName = "clock"
+)
