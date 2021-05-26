@@ -182,7 +182,7 @@ func main() {
 	rc, e := bin_config.LoadRC(*frc)
 	noError(e)
 
-	s := bin_client.NewBinClient(rc.Backs, rc.Keepers)
+	s := bin_client.NewBinClient(rc.Keepers)
 
 	cl := &client{s: s}
 	cl.runPrompt()
