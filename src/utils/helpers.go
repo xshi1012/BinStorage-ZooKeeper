@@ -45,3 +45,12 @@ func ObjectToString(o interface{}) (string, error) {
 	b, e := json.Marshal(o)
 	return string(b), e
 }
+
+func IndexOf(list []string, s string) int {
+	for i, v := range list {
+		if v == s {
+			return i
+		}
+	}
+	return -1
+}

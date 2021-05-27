@@ -10,11 +10,13 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
+	"sort"
 	"sync"
 	"time"
 )
 
 type binBack struct {
+	ready		   bool
 	backClients    map[string]*backClient
 	memberLock     sync.Mutex
 	keyLocks       map[string]*sync.Mutex
@@ -31,6 +33,7 @@ func NewBinBack(b *bin_config.BackConfig) *binBack {
 	binBack.config = b
 	binBack.backClients = make(map[string]*backClient)
 	binBack.keyLocks = make(map[string]*sync.Mutex)
+	binBack.ready = false
 
 	return binBack
 }
@@ -236,15 +239,16 @@ func (self *binBack) Run() error {
 	// do stuff before joining the group
 	self.group = synchronization.NewGroupMember(conn, bin_config.GroupPath, self.config.Addr)
 	members, e := self.group.GetCurrentMembers()
-
-	self.memberLock.Lock()
-	self.currentMembers = members
-	self.memberLock.Unlock()
-
 	if e != nil {
 		self.failOnStart()
 		return e
 	}
+
+	sort.Strings(members)
+
+	self.memberLock.Lock()
+	self.currentMembers = members
+	self.memberLock.Unlock()
 
 	// join the backend servers
 	go self.group.Listen(self.handleGroupMemberChange)
@@ -264,11 +268,41 @@ func (self *binBack) Run() error {
 }
 
 func (self *binBack) handleGroupMemberChange(members []string) {
+	sort.Strings(members)
+
 	self.memberLock.Lock()
+	if len(self.currentMembers) == 0 {
+		self.ready = true
+	} else if len(members) < len(self.currentMembers) {
+		// node leaves
+		for _, v := range self.currentMembers {
+			if utils.IndexOf(members, v) < 0 {
+				self.handleNodeLeave(self.currentMembers, v)
+			}
+			break
+		}
+
+	} else {
+		if utils.IndexOf(self.currentMembers, self.config.Addr) < 0 {
+			// self join
+			self.handleSelfJoin(members)
+			self.ready = true
+		} else {
+			// other join, do not care
+		}
+	}
 	self.currentMembers = members
 	self.memberLock.Unlock()
 
 	fmt.Println(members)
+}
+
+func (self *binBack) handleNodeLeave(oldMembers []string, whoLeft string) {
+
+}
+
+func (self *binBack) handleSelfJoin(newMembers []string) {
+	
 }
 
 func (self *binBack) failOnStart() {
@@ -282,15 +316,10 @@ func (self *binBack) sendLogToReplica(log *Log) error {
 	var waitForMember string
 
 	self.memberLock.Lock()
-	i := 0
-	for idx, v := range self.currentMembers {
-		if v == self.config.Addr {
-			i = idx + 1
-			break
-		}
-	}
-	fmt.Println(self.currentMembers)
+
+	i := utils.IndexOf(self.currentMembers, self.config.Addr) + 1
 	waitForMember = self.currentMembers[i % len(self.currentMembers)]
+
 	self.memberLock.Unlock()
 
 	if waitForMember == self.config.Addr {

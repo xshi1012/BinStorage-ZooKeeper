@@ -30,6 +30,10 @@ func (self *backClient) tryConnect() error {
 }
 
 func (self *backClient) forwardLog(log *Log, succ *bool) error {
+	return self.callOperation(bin_config.BackOperationForward, log, succ)
+}
+
+func (self *backClient) callOperation(operation string, input interface{}, output interface{}) error {
 	if self.conn == nil {
 		e := self.tryConnect()
 		if e != nil {
@@ -37,16 +41,14 @@ func (self *backClient) forwardLog(log *Log, succ *bool) error {
 		}
 	}
 
-	e := self.conn.Call(bin_config.BackOperationForward, log, succ)
-
+	e := self.conn.Call(operation, input, output)
 	if e == rpc.ErrShutdown {
 		e = self.tryConnect()
 		if e != nil {
 			return e
 		}
 
-		e = self.conn.Call(bin_config.BackOperationForward, log, succ)
+		e = self.conn.Call(operation, input, output)
 	}
-
 	return e
 }
