@@ -117,3 +117,69 @@ func (self *binSingle) Keys(pattern *store.Pattern, list *store.List) error {
 	}
 	return e
 }
+
+func (self *binSingle) ListGet(key string, list *store.List) error {
+	list.L = make([]string, 0)
+
+	if self.conn == nil {
+		e := self.tryConnect()
+		if e != nil {
+			return e
+		}
+	}
+
+	e := self.conn.Call(bin_config.OperationListGet, key, list)
+	if e == rpc.ErrShutdown {
+		e = self.tryConnect()
+		if e != nil {
+			return e
+		}
+
+		e = self.conn.Call(bin_config.OperationListGet, key, list)
+	}
+	return e
+}
+
+func (self *binSingle) ListAppend(kv *store.KeyValue, succ *bool) error {
+	*succ = false
+
+	if self.conn == nil {
+		e := self.tryConnect()
+		if e != nil {
+			return e
+		}
+	}
+
+	e := self.conn.Call(bin_config.OperationListAppend, kv, succ)
+	if e == rpc.ErrShutdown {
+		e = self.tryConnect()
+		if e != nil {
+			return e
+		}
+
+		e = self.conn.Call(bin_config.OperationListAppend, kv, succ)
+	}
+	return e
+}
+
+func (self *binSingle) ListRemove(kv *store.KeyValue, n *int) error {
+	*n = 0
+
+	if self.conn == nil {
+		e := self.tryConnect()
+		if e != nil {
+			return e
+		}
+	}
+
+	e := self.conn.Call(bin_config.OperationListRemove, kv, n)
+	if e == rpc.ErrShutdown {
+		e = self.tryConnect()
+		if e != nil {
+			return e
+		}
+
+		e = self.conn.Call(bin_config.OperationListRemove, kv, n)
+	}
+	return e
+}

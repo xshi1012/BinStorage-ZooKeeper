@@ -80,6 +80,61 @@ func (self *binBack) Keys(pattern *store.Pattern, list *store.List) error {
 	return self.config.Store.ListKeys(pattern, list)
 }
 
+func (self *binBack) ListGet(key string, list *store.List) error {
+	lock := self.getLockForKey(key)
+	lock.Lock()
+	defer lock.Unlock()
+
+	l := store.List{L: nil}
+	_ = self.config.Store.ListGet(key, &l)
+
+	logs, _ := ParseListLog(l.L)
+	list.L = ReplayListLog(logs)
+
+	return nil
+}
+
+func (self *binBack) ListAppend(kv *store.KeyValue, succ *bool) error {
+	lock := self.getLockForKey(kv.Key)
+	lock.Lock()
+	defer lock.Unlock()
+
+	clock, e := self.zkClock.GetAndIncrement()
+	if e != nil {
+		return e
+	}
+	log := CreateLog(kv.Key, bin_config.ListLogAppend, kv.Value, clock)
+
+	_ = self.sendLogToReplica(log)
+
+	logString, _ := utils.ObjectToString(log)
+	return self.config.Store.ListAppend(store.KV(kv.Key, logString), succ)
+}
+
+func (self *binBack) ListRemove(kv *store.KeyValue, n *int) error {
+	lock := self.getLockForKey(kv.Key)
+	lock.Lock()
+	defer lock.Unlock()
+
+	clock, e := self.zkClock.GetAndIncrement()
+	if e != nil {
+		return e
+	}
+	log := CreateLog(kv.Key, bin_config.ListLogDelete, kv.Value, clock)
+	logString, _ := utils.ObjectToString(log)
+
+	_ = self.sendLogToReplica(log)
+
+	succ := false
+	e = self.config.Store.ListAppend(store.KV(kv.Key, logString), &succ)
+	if e != nil {
+		return e
+	}
+	*n = self.applyListDelete(log)
+
+	return nil
+}
+
 // server internal RPCs
 func (self *binBack) ForwardLog(log *Log, succ *bool) error {
 	key := log.Key
@@ -91,6 +146,9 @@ func (self *binBack) ForwardLog(log *Log, succ *bool) error {
 		logString, _ := utils.ObjectToString(log)
 		var succ bool
 		_ = self.config.Store.ListAppend(store.KV(key, logString), &succ)
+		if log.Operation == bin_config.ListLogDelete {
+			self.applyListDelete(log)
+		}
 		lock.Unlock()
 	}()
 
@@ -212,4 +270,25 @@ func (self *binBack) getLockForKey(name string) *sync.Mutex {
 	self.keyLocks[name] = lock
 
 	return lock
+}
+
+func (self *binBack) applyListDelete(log *Log) int {
+	l := store.List{L: nil}
+	_ = self.config.Store.ListGet(log.Key, &l)
+	logs, _ := ParseListLog(l.L)
+
+	n := 0
+	for _, lg := range logs {
+		if lg.Clock >= log.Clock {
+			break
+		}
+		if lg.Clock < log.Clock && lg.Value == log.Value {
+			d := 0
+			s, _ := utils.ObjectToString(lg)
+			_ = self.config.Store.ListRemove(store.KV(log.Key, s), &d)
+			n += d
+		}
+	}
+
+	return n
 }

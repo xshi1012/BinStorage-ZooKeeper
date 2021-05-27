@@ -102,15 +102,63 @@ func (self *bin) Keys(p *store.Pattern, list *store.List) error {
 }
 
 func (self *bin) ListGet(key string, list *store.List) error {
-	panic("todo")
+	realKey := bin_config.ListLog + bin_config.Delimiter + self.key + colon.Escape(key)
+
+	single, e := self.binClient.getBinSingleForBin(self.name)
+	if e != nil {
+		return e
+	}
+
+	e = single.ListGet(realKey, list)
+	if e != nil {
+		single, e = self.binClient.getBinSingleForBin(self.name)
+		if e != nil {
+			return e
+		}
+		return single.ListGet(realKey, list)
+	} else {
+		return nil
+	}
 }
 
 func (self *bin) ListAppend(kv *store.KeyValue, succ *bool) error {
-	panic("todo")
+	realKey := bin_config.ListLog + bin_config.Delimiter + self.key + colon.Escape(kv.Key)
+
+	single, e := self.binClient.getBinSingleForBin(self.name)
+	if e != nil {
+		return e
+	}
+
+	e = single.ListAppend(store.KV(realKey, kv.Value), succ)
+	if e != nil {
+		single, e = self.binClient.getBinSingleForBin(self.name)
+		if e != nil {
+			return e
+		}
+		return single.ListAppend(store.KV(realKey, kv.Value), succ)
+	} else {
+		return nil
+	}
 }
 
 func (self *bin) ListRemove(kv *store.KeyValue, n *int) error {
-	panic("todo")
+	realKey := bin_config.ListLog + bin_config.Delimiter + self.key + colon.Escape(kv.Key)
+
+	single, e := self.binClient.getBinSingleForBin(self.name)
+	if e != nil {
+		return e
+	}
+
+	e = single.ListRemove(store.KV(realKey, kv.Value), n)
+	if e != nil {
+		single, e = self.binClient.getBinSingleForBin(self.name)
+		if e != nil {
+			return e
+		}
+		return single.ListRemove(store.KV(realKey, kv.Value), n)
+	} else {
+		return nil
+	}
 }
 
 func (self *bin) ListKeys(p *store.Pattern, list *store.List) error {
