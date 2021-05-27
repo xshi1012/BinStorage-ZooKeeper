@@ -4,6 +4,7 @@ import (
 	"BinStorageZK/src/bin_back/bin_config"
 	"BinStorageZK/src/bin_back/store"
 	"BinStorageZK/src/utils/colon"
+	"strings"
 )
 
 type bin struct {
@@ -22,30 +23,30 @@ func NewBin(name string, binClient *binClient) *bin {
 }
 
 func (self *bin) Clock(atLeast uint64, ret *uint64) error {
-	binSingle, e := self.binClient.getBinSingleForBin(self.name)
+	single, e := self.binClient.getBinSingleForBin(self.name)
 	if e != nil {
 		return e
 	}
 
-	return binSingle.Clock(ret)
+	return single.Clock(ret)
 }
 
 func (self *bin) Get(key string, value *string) error {
 	realKey := bin_config.KeyValueLog + bin_config.Delimiter + self.key + colon.Escape(key)
 
-	binSingle, e := self.binClient.getBinSingleForBin(self.name)
+	single, e := self.binClient.getBinSingleForBin(self.name)
 	if e != nil {
 		return e
 	}
 
-	e = binSingle.Get(realKey, value)
+	e = single.Get(realKey, value)
 	if e != nil {
 		// retry once
-		binSingle, e = self.binClient.getBinSingleForBin(self.name)
+		single, e = self.binClient.getBinSingleForBin(self.name)
 		if e != nil {
 			return e
 		}
-		return binSingle.Get(realKey, value)
+		return single.Get(realKey, value)
 	} else {
 		return nil
 	}
@@ -54,25 +55,50 @@ func (self *bin) Get(key string, value *string) error {
 func (self *bin) Set(kv *store.KeyValue, succ *bool) error {
 	realKey := bin_config.KeyValueLog + bin_config.Delimiter + self.key + colon.Escape(kv.Key)
 
-	binSingle, e := self.binClient.getBinSingleForBin(self.name)
+	single, e := self.binClient.getBinSingleForBin(self.name)
 	if e != nil {
 		return e
 	}
 
-	e = binSingle.Set(store.KV(realKey, kv.Value), succ)
+	e = single.Set(store.KV(realKey, kv.Value), succ)
 	if e != nil {
-		binSingle, e = self.binClient.getBinSingleForBin(self.name)
+		single, e = self.binClient.getBinSingleForBin(self.name)
 		if e != nil {
 			return e
 		}
-		return binSingle.Set(store.KV(realKey, kv.Value), succ)
+		return single.Set(store.KV(realKey, kv.Value), succ)
 	} else {
 		return nil
 	}
 }
 
 func (self *bin) Keys(p *store.Pattern, list *store.List) error {
-	panic("todo")
+	realPattern := store.Pattern{Prefix: bin_config.KeyValueLog + bin_config.Delimiter + self.key + colon.Escape(p.Prefix), Suffix: p.Suffix}
+
+	single, e := self.binClient.getBinSingleForBin(self.name)
+	if e != nil {
+		return e
+	}
+
+	unescaped := store.List{L: nil}
+	e = single.Keys(&realPattern, &unescaped)
+	if e != nil {
+		single, e = self.binClient.getBinSingleForBin(self.name)
+		if e != nil {
+			return e
+		}
+		e = single.Keys(&realPattern, &unescaped)
+		if e != nil {
+			return e
+		}
+	}
+
+	list.L = make([]string, 0, len(unescaped.L))
+	for _, v := range unescaped.L {
+		list.L = append(list.L, colon.Unescape(strings.Split(v, bin_config.Delimiter)[2]))
+	}
+
+	return nil
 }
 
 func (self *bin) ListGet(key string, list *store.List) error {

@@ -22,6 +22,7 @@ const (
 	OperationClock = ServiceName + ".Clock"
 	OperationGet = ServiceName + ".Get"
 	OperationSet = ServiceName + ".Set"
+	OperationKeys = ServiceName + ".Keys"
 
 	BackOperationForward = ServiceName + ".ForwardLog"
 

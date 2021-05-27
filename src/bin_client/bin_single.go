@@ -49,7 +49,6 @@ func (self *binSingle) Clock(ret *uint64) error {
 
 		e = self.conn.Call(bin_config.OperationClock, uint64(0), ret)
 	}
-
 	return e
 }
 
@@ -96,6 +95,25 @@ func (self *binSingle) Set(kv *store.KeyValue, succ *bool) error {
 
 		e = self.conn.Call(bin_config.OperationSet, kv, succ)
 	}
+	return e
+}
 
+func (self *binSingle) Keys(pattern *store.Pattern, list *store.List) error {
+	if self.conn == nil {
+		e := self.tryConnect()
+		if e != nil {
+			return e
+		}
+	}
+
+	e := self.conn.Call(bin_config.OperationKeys, pattern, list)
+	if e == rpc.ErrShutdown {
+		e = self.tryConnect()
+		if e != nil {
+			return e
+		}
+
+		e = self.conn.Call(bin_config.OperationKeys, pattern, list)
+	}
 	return e
 }

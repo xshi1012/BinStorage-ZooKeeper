@@ -10,6 +10,7 @@ type BinBackRPC interface {
 	Clock(_ uint64, ret *uint64) error
 	Get(key string, value *string) error
 	Set(kv *store.KeyValue, succ *bool) error
+	Keys(pattern *store.Pattern, list *store.List) error
 
 	ForwardLog(log *Log, succ *bool) error
 }

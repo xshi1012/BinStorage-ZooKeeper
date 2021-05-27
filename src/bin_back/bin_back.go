@@ -48,8 +48,6 @@ func (self *binBack) Get(key string, value *string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	*value = ""
-
 	l := store.List{L: nil}
 	_ = self.config.Store.ListGet(key, &l)
 
@@ -76,6 +74,10 @@ func (self *binBack) Set(kv *store.KeyValue, succ *bool) error {
 
 	logString, _ := utils.ObjectToString(log)
 	return self.config.Store.ListAppend(store.KV(kv.Key, logString), succ)
+}
+
+func (self *binBack) Keys(pattern *store.Pattern, list *store.List) error {
+	return self.config.Store.ListKeys(pattern, list)
 }
 
 // server internal RPCs
@@ -137,12 +139,12 @@ func (self *binBack) Run() error {
 	}
 
 	// join the backend servers
+	go self.group.Listen(self.handleGroupMemberChange)
 	_, e = self.group.Join()
 	if e != nil {
 		self.failOnStart()
 		return e
 	}
-	go self.group.Listen(self.handleGroupMemberChange)
 	
 	if self.config.Ready != nil {
 		self.config.Ready <- true
@@ -179,6 +181,7 @@ func (self *binBack) sendLogToReplica(log *Log) error {
 			break
 		}
 	}
+	fmt.Println(self.currentMembers)
 	waitForMember = self.currentMembers[i % len(self.currentMembers)]
 	self.memberLock.Unlock()
 
