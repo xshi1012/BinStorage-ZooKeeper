@@ -18,4 +18,16 @@ const (
 	ServiceName = "BinBackRPC"
 	ServiceClocksPath = "/trib/clocks"
 	ServiceClockName = "clock"
+
+	OperationClock = ServiceName + ".Clock"
+	OperationGet = ServiceName + ".Get"
+	OperationSet = ServiceName + ".Set"
+
+	BackOperationForward = ServiceName + ".ForwardLog"
+
+	ListLogAppend = "Append"
+	ListLogDelete = "Delete"
+
+	ListLog = "List"
+	KeyValueLog = "KeyValue"
 )

@@ -1,24 +1,24 @@
-package bin_client
+package bin_back
 
 import (
 	"BinStorageZK/src/bin_back/bin_config"
 	"net/rpc"
 )
 
-type binSingle struct {
+type backClient struct {
 	addr string
 	conn *rpc.Client
 }
 
-func NewBinSingle(addr string) *binSingle {
-	binSingle := new(binSingle)
+func NewBackClient(addr string) *backClient {
+	binSingle := new(backClient)
 	binSingle.addr = addr
 	binSingle.conn = nil
 
 	return binSingle
 }
 
-func (self *binSingle) tryConnect() error {
+func (self *backClient) tryConnect() error {
 	conn, e := rpc.DialHTTP("tcp", self.addr)
 	if e != nil {
 		return e
@@ -29,9 +29,7 @@ func (self *binSingle) tryConnect() error {
 	return nil
 }
 
-func (self *binSingle) clock(ret *uint64) error {
-	*ret = 0
-
+func (self *backClient) forwardLog(log *Log, succ *bool) error {
 	if self.conn == nil {
 		e := self.tryConnect()
 		if e != nil {
@@ -39,14 +37,15 @@ func (self *binSingle) clock(ret *uint64) error {
 		}
 	}
 
-	e := self.conn.Call(bin_config.OperationClock, uint64(0), ret)
+	e := self.conn.Call(bin_config.BackOperationForward, log, succ)
+
 	if e == rpc.ErrShutdown {
 		e = self.tryConnect()
 		if e != nil {
 			return e
 		}
 
-		e = self.conn.Call(bin_config.OperationClock, uint64(0), ret)
+		e = self.conn.Call(bin_config.BackOperationForward, log, succ)
 	}
 
 	return e

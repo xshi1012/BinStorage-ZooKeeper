@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"hash/fnv"
 )
 
@@ -35,4 +36,12 @@ func Unique(s []string) []string {
 	}
 
 	return list
+}
+
+/**
+ * Converts an object into a json string
+ */
+func ObjectToString(o interface{}) (string, error) {
+	b, e := json.Marshal(o)
+	return string(b), e
 }
