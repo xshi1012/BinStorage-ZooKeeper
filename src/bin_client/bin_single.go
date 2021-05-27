@@ -56,8 +56,6 @@ func (self *binSingle) Clock(ret *uint64) error {
 func (self *binSingle) Get(key string, value *string) error {
 	*value = ""
 
-	*value = ""
-
 	// try connect if not connected
 	if self.conn == nil {
 		e := self.tryConnect()

@@ -72,7 +72,7 @@ func (self *binBack) Set(kv *store.KeyValue, succ *bool) error {
 	}
 	log := CreateLog(kv.Key, "", kv.Value, clock)
 
-	_ = self.forwardLog(log)
+	_ = self.sendLogToReplica(log)
 
 	logString, _ := utils.ObjectToString(log)
 	return self.config.Store.ListAppend(store.KV(kv.Key, logString), succ)
@@ -92,6 +92,7 @@ func (self *binBack) ForwardLog(log *Log, succ *bool) error {
 		lock.Unlock()
 	}()
 
+	*succ = true
 	return nil
 }
 
@@ -124,7 +125,12 @@ func (self *binBack) Run() error {
 
 	// do stuff before joining the group
 	self.group = synchronization.NewGroupMember(conn, bin_config.GroupPath, self.config.Addr)
-	e = self.preJoin()
+	members, e := self.group.GetCurrentMembers()
+
+	self.memberLock.Lock()
+	self.currentMembers = members
+	self.memberLock.Unlock()
+
 	if e != nil {
 		self.failOnStart()
 		return e
@@ -147,15 +153,6 @@ func (self *binBack) Run() error {
 	return e
 }
 
-func (self *binBack) preJoin() error {
-	members, e := self.group.GetCurrentMembers()
-	self.memberLock.Lock()
-	self.currentMembers = members
-	self.memberLock.Unlock()
-
-	return e
-}
-
 func (self *binBack) handleGroupMemberChange(members []string) {
 	self.memberLock.Lock()
 	self.currentMembers = members
@@ -170,7 +167,7 @@ func (self *binBack) failOnStart() {
 	}
 }
 
-func (self *binBack) forwardLog(log *Log) error {
+func (self *binBack) sendLogToReplica(log *Log) error {
 	// find the replicas
 	var waitForMember string
 
@@ -196,22 +193,17 @@ func (self *binBack) forwardLog(log *Log) error {
 	}
 
 	var succ bool
-	e := client.forwardLog(log, &succ)
-	if e != nil {
-		return e
-	}
-
-	return nil
+	return client.forwardLog(log, &succ)
 }
 
 func (self *binBack) getLockForKey(name string) *sync.Mutex {
+	self.lockMapLock.Lock()
+	defer self.lockMapLock.Unlock()
+
 	lock, ok := self.keyLocks[name]
 	if ok {
 		return lock
 	}
-
-	self.lockMapLock.Lock()
-	defer self.lockMapLock.Unlock()
 
 	lock = new(sync.Mutex)
 	self.keyLocks[name] = lock
