@@ -154,7 +154,7 @@ func populate(server trib.Server) {
 }
 
 func wwwPath() string {
-	pkg, e := build.Import("trib", "./", build.FindOnly)
+	pkg, e := build.Import("BinStorageZK/src/trib", "./", build.FindOnly)
 	if e != nil {
 		log.Fatal(e)
 	}

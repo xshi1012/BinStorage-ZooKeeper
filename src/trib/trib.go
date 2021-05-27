@@ -9,9 +9,9 @@ import (
 const (
 	MaxUsernameLen = 15   // Maximum length of a username
 	MaxTribLen     = 140  // Maximum length of a tribble
-	MaxTribFetch   = 100  // Maximum count of tribbles for Home() and Tribs()
+	MaxTribFetch   = 10  // Maximum count of tribbles for Home() and Tribs()
 	MinListUser    = 20   // Minimum count of users required for ListUsers()
-	MaxFollowing   = 2000 // Maximum count of users that one can follow
+	MaxFollowing   = 3 // Maximum count of users that one can follow
 )
 
 type Trib struct {
