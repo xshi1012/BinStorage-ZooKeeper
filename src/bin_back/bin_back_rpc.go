@@ -17,4 +17,5 @@ type BinBackRPC interface {
 	ListKeys(pattern *store.Pattern, list *store.List) error
 
 	ForwardLog(log *Log, succ *bool) error
+	GetPrimaryData(request *ServerDataRequest, data *ServerData) error
 }

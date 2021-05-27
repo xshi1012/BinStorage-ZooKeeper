@@ -5,12 +5,12 @@ import (
 	"BinStorageZK/src/bin_back/store"
 	"BinStorageZK/src/synchronization"
 	"BinStorageZK/src/utils"
-	"fmt"
 	"github.com/go-zookeeper/zk"
 	"net"
 	"net/http"
 	"net/rpc"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -47,6 +47,11 @@ func (self *binBack) Clock(_ uint64, ret *uint64) error {
 }
 
 func (self *binBack) Get(key string, value *string) error {
+	if !self.ready {
+		bin := strings.Split(key, bin_config.Delimiter)[1]
+		return self.forwardReadRequest(bin, bin_config.OperationGet, key, value)
+	}
+
 	lock := self.getLockForKey(key)
 	lock.Lock()
 	defer lock.Unlock()
@@ -80,6 +85,11 @@ func (self *binBack) Set(kv *store.KeyValue, succ *bool) error {
 }
 
 func (self *binBack) Keys(pattern *store.Pattern, list *store.List) error {
+	if !self.ready {
+		bin := strings.Split(pattern.Prefix, bin_config.Delimiter)[1]
+		return self.forwardReadRequest(bin, bin_config.OperationKeys, pattern, list)
+	}
+
 	keys := store.List{L: nil}
 	_ = self.config.Store.ListKeys(pattern, &keys)
 
@@ -107,6 +117,11 @@ func (self *binBack) Keys(pattern *store.Pattern, list *store.List) error {
 }
 
 func (self *binBack) ListGet(key string, list *store.List) error {
+	if !self.ready {
+		bin := strings.Split(key, bin_config.Delimiter)[1]
+		return self.forwardReadRequest(bin, bin_config.OperationListGet, key, list)
+	}
+
 	lock := self.getLockForKey(key)
 	lock.Lock()
 	defer lock.Unlock()
@@ -162,6 +177,11 @@ func (self *binBack) ListRemove(kv *store.KeyValue, n *int) error {
 }
 
 func (self *binBack) ListKeys(pattern *store.Pattern, list *store.List) error {
+	if !self.ready {
+		bin := strings.Split(pattern.Prefix, bin_config.Delimiter)[1]
+		return self.forwardReadRequest(bin, bin_config.OperationListKeys, pattern, list)
+	}
+
 	keys := store.List{L: nil}
 	_ = self.config.Store.ListKeys(pattern, &keys)
 
@@ -206,6 +226,78 @@ func (self *binBack) ForwardLog(log *Log, succ *bool) error {
 	}()
 
 	*succ = true
+	return nil
+}
+
+func (self *binBack) GetPrimaryData(request *ServerDataRequest, data *ServerData) error {
+	target := request.Addr
+	members := request.Members
+	data.D = make(map[string][]string)
+
+	keys := store.List{L: nil}
+	_ = self.config.Store.ListKeys(&store.Pattern{Prefix: bin_config.KeyValueLog}, &keys)
+
+	for _, v := range keys.L {
+		bin := strings.Split(v, bin_config.Delimiter)[1]
+		if !self.determineIfPrimary(target, bin, members) {
+			continue
+		}
+
+		lock := self.getLockForKey(v)
+		lock.Lock()
+
+		l := store.List{L: nil}
+		_ = self.config.Store.ListGet(v, &l)
+
+		logs, _ := ParseLog(l.L)
+		log := ReplayKeyValueLog(logs)
+
+		if log.Value != "" {
+			data.D[v] = l.L
+		}
+
+		if request.Delete {
+			for _, s := range l.L {
+				n := 0
+				_ = self.config.Store.ListRemove(store.KV(v, s), &n)
+			}
+		}
+
+		lock.Unlock()
+	}
+
+	keys = store.List{L: nil}
+	_ = self.config.Store.ListKeys(&store.Pattern{Prefix: bin_config.ListLog}, &keys)
+
+	for _, v := range keys.L {
+		bin := strings.Split(v, bin_config.Delimiter)[1]
+		if !self.determineIfPrimary(target, bin, members) {
+			continue
+		}
+
+		lock := self.getLockForKey(v)
+		lock.Lock()
+
+		l := store.List{L: nil}
+		_ = self.config.Store.ListGet(v, &l)
+
+		logs, _ := ParseListLog(l.L)
+		ll := ReplayListLog(logs)
+
+		if len(ll) > 0 {
+			data.D[v] = l.L
+		}
+
+		if request.Delete {
+			for _, s := range l.L {
+				n := 0
+				_ = self.config.Store.ListRemove(store.KV(v, s), &n)
+			}
+		}
+
+		lock.Unlock()
+	}
+
 	return nil
 }
 
@@ -293,16 +385,127 @@ func (self *binBack) handleGroupMemberChange(members []string) {
 	}
 	self.currentMembers = members
 	self.memberLock.Unlock()
-
-	fmt.Println(members)
 }
 
 func (self *binBack) handleNodeLeave(oldMembers []string, whoLeft string) {
+	// this is the last node, no need to migrate
+	if len(oldMembers) == 2 {
+		return
+	}
 
+	i := utils.IndexOf(oldMembers, whoLeft)
+	i += len(oldMembers)
+	prev := oldMembers[(i - 1) % len(oldMembers)]
+	next := oldMembers[(i + 1) % len(oldMembers)]
+	nNext := oldMembers[(i + 2) % len(oldMembers)]
+
+	if self.config.Addr == next {
+		prevClient, ok := self.backClients[prev]
+		if !ok {
+			prevClient = NewBackClient(prev)
+			self.backClients[prev] = prevClient
+		}
+
+		data := ServerData{D: nil}
+		_ = prevClient.GetPrimaryData(&ServerDataRequest{Addr: prev, Members: oldMembers, Delete: false}, &data)
+
+		for k := range data.D {
+			lock := self.getLockForKey(k)
+			lock.Lock()
+
+			for _, v := range data.D[k] {
+				succ := false
+				_ = self.config.Store.ListAppend(store.KV(k, v), &succ)
+			}
+
+			lock.Unlock()
+		}
+
+	} else if self.config.Addr == nNext {
+		nextClient, ok := self.backClients[next]
+		if !ok {
+			nextClient = NewBackClient(next)
+			self.backClients[next] = nextClient
+		}
+
+		data := ServerData{D: nil}
+		_ = nextClient.GetPrimaryData(&ServerDataRequest{Addr: whoLeft, Members: oldMembers, Delete: false}, &data)
+
+		for k := range data.D {
+			lock := self.getLockForKey(k)
+			lock.Lock()
+
+			for _, v := range data.D[k] {
+				succ := false
+				_ = self.config.Store.ListAppend(store.KV(k, v), &succ)
+			}
+
+			lock.Unlock()
+		}
+	}
 }
 
 func (self *binBack) handleSelfJoin(newMembers []string) {
-	
+	i := utils.IndexOf(newMembers, self.config.Addr)
+	i += len(newMembers)
+	prev := newMembers[(i - 1) % len(newMembers)]
+	next := newMembers[(i + 1) % len(newMembers)]
+	nNext := newMembers[(i + 2) % len(newMembers)]
+
+	nextClient, ok := self.backClients[next]
+	if !ok {
+		nextClient = NewBackClient(next)
+		self.backClients[next] = nextClient
+	}
+
+	// get prev's primary data from next
+	// next currently holds the copy
+	// Delete next's copy if it is not the same as prev
+	data := ServerData{D: nil}
+	_ = nextClient.GetPrimaryData(&ServerDataRequest{Addr: prev, Members: newMembers, Delete: prev != next}, &data)
+
+	for k := range data.D {
+		lock := self.getLockForKey(k)
+		lock.Lock()
+
+		for _, v := range data.D[k] {
+			succ := false
+			_ = self.config.Store.ListAppend(store.KV(k, v), &succ)
+		}
+
+		lock.Unlock()
+	}
+
+	// if nNext == self, then there is only two servers alive
+	// if there is only two copies, do not Delete
+	deleteNNext := true
+	if nNext == self.config.Addr {
+		nNext = prev
+		deleteNNext = false
+	}
+
+	nNextClient, ok := self.backClients[nNext]
+	if !ok {
+		nNextClient = NewBackClient(nNext)
+		self.backClients[nNext] = nNextClient
+	}
+
+	// get self's primary data from nNext
+	// nNext currently holds the copy
+	data = ServerData{D: nil}
+	_ = nNextClient.GetPrimaryData(&ServerDataRequest{Addr: self.config.Addr, Members: newMembers, Delete: deleteNNext}, &data)
+
+	for k := range data.D {
+		lock := self.getLockForKey(k)
+		lock.Lock()
+
+		for _, v := range data.D[k] {
+			succ := false
+			_ = self.config.Store.ListAppend(store.KV(k, v), &succ)
+		}
+
+		lock.Unlock()
+	}
 }
 
 func (self *binBack) failOnStart() {
@@ -370,4 +573,29 @@ func (self *binBack) applyListDelete(log *Log) int {
 	}
 
 	return n
+}
+
+func (self *binBack) determineIfPrimary(addr string, bin string, members []string) bool {
+	h := utils.StringToFnvNumber(bin)
+	if addr == members[h % len(members)] {
+		return true
+	}
+	return false
+}
+
+func (self *binBack) forwardReadRequest(bin string, operation string, input interface{}, output interface{}) error {
+	target := ""
+	if self.determineIfPrimary(self.config.Addr, bin, self.currentMembers) {
+		target = self.currentMembers[(utils.IndexOf(self.currentMembers, self.config.Addr) + 1) % len(self.currentMembers)]
+	} else {
+		target = self.currentMembers[(utils.IndexOf(self.currentMembers, self.config.Addr) - 1) % len(self.currentMembers)]
+	}
+
+	client, ok := self.backClients[target]
+	if !ok {
+		client = NewBackClient(target)
+		self.backClients[target] = client
+	}
+
+	return client.callOperation(operation, input, output)
 }
