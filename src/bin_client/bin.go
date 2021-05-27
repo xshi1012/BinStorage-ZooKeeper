@@ -23,7 +23,7 @@ func NewBin(name string, binClient *binClient) *bin {
 }
 
 func (self *bin) Clock(atLeast uint64, ret *uint64) error {
-	single, e := self.binClient.getBinSingleForBin(self.name)
+	single, e := self.binClient.getBinSingleForBin(self.name, false)
 	if e != nil {
 		return e
 	}
@@ -34,7 +34,7 @@ func (self *bin) Clock(atLeast uint64, ret *uint64) error {
 func (self *bin) Get(key string, value *string) error {
 	realKey := bin_config.KeyValueLog + bin_config.Delimiter + self.key + colon.Escape(key)
 
-	single, e := self.binClient.getBinSingleForBin(self.name)
+	single, e := self.binClient.getBinSingleForBin(self.name, false)
 	if e != nil {
 		return e
 	}
@@ -42,7 +42,7 @@ func (self *bin) Get(key string, value *string) error {
 	e = single.Get(realKey, value)
 	if e != nil {
 		// retry once
-		single, e = self.binClient.getBinSingleForBin(self.name)
+		single, e = self.binClient.getBinSingleForBin(self.name, true)
 		if e != nil {
 			return e
 		}
@@ -55,14 +55,14 @@ func (self *bin) Get(key string, value *string) error {
 func (self *bin) Set(kv *store.KeyValue, succ *bool) error {
 	realKey := bin_config.KeyValueLog + bin_config.Delimiter + self.key + colon.Escape(kv.Key)
 
-	single, e := self.binClient.getBinSingleForBin(self.name)
+	single, e := self.binClient.getBinSingleForBin(self.name, false)
 	if e != nil {
 		return e
 	}
 
 	e = single.Set(store.KV(realKey, kv.Value), succ)
 	if e != nil {
-		single, e = self.binClient.getBinSingleForBin(self.name)
+		single, e = self.binClient.getBinSingleForBin(self.name, false)
 		if e != nil {
 			return e
 		}
@@ -75,7 +75,7 @@ func (self *bin) Set(kv *store.KeyValue, succ *bool) error {
 func (self *bin) Keys(p *store.Pattern, list *store.List) error {
 	realPattern := store.Pattern{Prefix: bin_config.KeyValueLog + bin_config.Delimiter + self.key + colon.Escape(p.Prefix), Suffix: p.Suffix}
 
-	single, e := self.binClient.getBinSingleForBin(self.name)
+	single, e := self.binClient.getBinSingleForBin(self.name, false)
 	if e != nil {
 		return e
 	}
@@ -83,7 +83,7 @@ func (self *bin) Keys(p *store.Pattern, list *store.List) error {
 	unescaped := store.List{L: nil}
 	e = single.Keys(&realPattern, &unescaped)
 	if e != nil {
-		single, e = self.binClient.getBinSingleForBin(self.name)
+		single, e = self.binClient.getBinSingleForBin(self.name, true)
 		if e != nil {
 			return e
 		}
@@ -104,14 +104,14 @@ func (self *bin) Keys(p *store.Pattern, list *store.List) error {
 func (self *bin) ListGet(key string, list *store.List) error {
 	realKey := bin_config.ListLog + bin_config.Delimiter + self.key + colon.Escape(key)
 
-	single, e := self.binClient.getBinSingleForBin(self.name)
+	single, e := self.binClient.getBinSingleForBin(self.name, false)
 	if e != nil {
 		return e
 	}
 
 	e = single.ListGet(realKey, list)
 	if e != nil {
-		single, e = self.binClient.getBinSingleForBin(self.name)
+		single, e = self.binClient.getBinSingleForBin(self.name, true)
 		if e != nil {
 			return e
 		}
@@ -124,14 +124,14 @@ func (self *bin) ListGet(key string, list *store.List) error {
 func (self *bin) ListAppend(kv *store.KeyValue, succ *bool) error {
 	realKey := bin_config.ListLog + bin_config.Delimiter + self.key + colon.Escape(kv.Key)
 
-	single, e := self.binClient.getBinSingleForBin(self.name)
+	single, e := self.binClient.getBinSingleForBin(self.name, false)
 	if e != nil {
 		return e
 	}
 
 	e = single.ListAppend(store.KV(realKey, kv.Value), succ)
 	if e != nil {
-		single, e = self.binClient.getBinSingleForBin(self.name)
+		single, e = self.binClient.getBinSingleForBin(self.name, false)
 		if e != nil {
 			return e
 		}
@@ -144,14 +144,14 @@ func (self *bin) ListAppend(kv *store.KeyValue, succ *bool) error {
 func (self *bin) ListRemove(kv *store.KeyValue, n *int) error {
 	realKey := bin_config.ListLog + bin_config.Delimiter + self.key + colon.Escape(kv.Key)
 
-	single, e := self.binClient.getBinSingleForBin(self.name)
+	single, e := self.binClient.getBinSingleForBin(self.name, false)
 	if e != nil {
 		return e
 	}
 
 	e = single.ListRemove(store.KV(realKey, kv.Value), n)
 	if e != nil {
-		single, e = self.binClient.getBinSingleForBin(self.name)
+		single, e = self.binClient.getBinSingleForBin(self.name, false)
 		if e != nil {
 			return e
 		}
@@ -164,7 +164,7 @@ func (self *bin) ListRemove(kv *store.KeyValue, n *int) error {
 func (self *bin) ListKeys(p *store.Pattern, list *store.List) error {
 	realPattern := store.Pattern{Prefix: bin_config.ListLog + bin_config.Delimiter + self.key + colon.Escape(p.Prefix), Suffix: p.Suffix}
 
-	single, e := self.binClient.getBinSingleForBin(self.name)
+	single, e := self.binClient.getBinSingleForBin(self.name, false)
 	if e != nil {
 		return e
 	}
@@ -172,7 +172,7 @@ func (self *bin) ListKeys(p *store.Pattern, list *store.List) error {
 	unescaped := store.List{L: nil}
 	e = single.ListKeys(&realPattern, &unescaped)
 	if e != nil {
-		single, e = self.binClient.getBinSingleForBin(self.name)
+		single, e = self.binClient.getBinSingleForBin(self.name, true)
 		if e != nil {
 			return e
 		}

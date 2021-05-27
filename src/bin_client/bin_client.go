@@ -7,6 +7,7 @@ import (
 	"BinStorageZK/src/utils"
 	"fmt"
 	"github.com/go-zookeeper/zk"
+	"sort"
 	"time"
 )
 
@@ -40,7 +41,7 @@ func (self *binClient)Bin(name string) store.Storage {
 	return bin
 }
 
-func (self *binClient) getBinSingleForBin(name string) (*binSingle, error) {
+func (self *binClient) getBinSingleForBin(name string, replica bool) (*binSingle, error) {
 	if self.group == nil {
 		conn, _, e := zk.Connect(self.keepers, time.Second)
 		if e != nil {
@@ -52,10 +53,12 @@ func (self *binClient) getBinSingleForBin(name string) (*binSingle, error) {
 		if e != nil {
 			return nil, e
 		}
+		sort.Strings(members)
 		self.currentMembers = members
 
 		go func() {
 			_ = self.group.Listen(func(members []string) {
+				sort.Strings(members)
 				self.currentMembers = members
 			})
 
@@ -69,6 +72,9 @@ func (self *binClient) getBinSingleForBin(name string) (*binSingle, error) {
 	}
 
 	h := utils.StringToFnvNumber(name)
+	if replica {
+		h += 1
+	}
 	addr := self.currentMembers[h % len(self.currentMembers)]
 
 	c, ok := self.clients[addr]
