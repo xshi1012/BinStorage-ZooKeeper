@@ -2,6 +2,7 @@ package bin_client
 
 import (
 	"BinStorageZK/src/bin_back/bin_config"
+	"BinStorageZK/src/bin_back/store"
 	"net/rpc"
 )
 
@@ -29,7 +30,7 @@ func (self *binSingle) tryConnect() error {
 	return nil
 }
 
-func (self *binSingle) clock(ret *uint64) error {
+func (self *binSingle) Clock(ret *uint64) error {
 	*ret = 0
 
 	if self.conn == nil {
@@ -47,6 +48,55 @@ func (self *binSingle) clock(ret *uint64) error {
 		}
 
 		e = self.conn.Call(bin_config.OperationClock, uint64(0), ret)
+	}
+
+	return e
+}
+
+func (self *binSingle) Get(key string, value *string) error {
+	*value = ""
+
+	*value = ""
+
+	// try connect if not connected
+	if self.conn == nil {
+		e := self.tryConnect()
+		if e != nil {
+			return e
+		}
+	}
+
+	// perform the call
+	e := self.conn.Call(bin_config.OperationGet, key, value)
+
+	// retry once on shutdown error
+	if e == rpc.ErrShutdown {
+		e = self.tryConnect()
+		if e != nil {
+			return e
+		}
+
+		e = self.conn.Call(bin_config.OperationGet, key, value)
+	}
+	return e
+}
+
+func (self *binSingle) Set(kv *store.KeyValue, succ *bool) error {
+	if self.conn == nil {
+		e := self.tryConnect()
+		if e != nil {
+			return e
+		}
+	}
+
+	e := self.conn.Call(bin_config.OperationSet, kv, succ)
+	if e == rpc.ErrShutdown {
+		e = self.tryConnect()
+		if e != nil {
+			return e
+		}
+
+		e = self.conn.Call(bin_config.OperationSet, kv, succ)
 	}
 
 	return e
