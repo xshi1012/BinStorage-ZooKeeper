@@ -5,7 +5,6 @@ import (
 	"container/list"
 	"log"
 	"math"
-	"sync"
 )
 
 var Logging bool
@@ -18,10 +17,6 @@ type MemoryStorage struct {
 
 	strs  map[string]string
 	lists map[string]*list.List
-
-	clockLock sync.Mutex
-	strLock   sync.Mutex
-	listLock  sync.Mutex
 }
 
 var _ Storage = new(MemoryStorage)
@@ -38,9 +33,6 @@ func NewMemoryStorage() *MemoryStorage {
 }
 
 func (self *MemoryStorage) Clock(atLeast uint64, ret *uint64) error {
-	self.clockLock.Lock()
-	defer self.clockLock.Unlock()
-
 	if self.clock < atLeast {
 		self.clock = atLeast
 	}
@@ -59,9 +51,6 @@ func (self *MemoryStorage) Clock(atLeast uint64, ret *uint64) error {
 }
 
 func (self *MemoryStorage) Get(key string, value *string) error {
-	self.strLock.Lock()
-	defer self.strLock.Unlock()
-
 	*value = self.strs[key]
 
 	if Logging {
@@ -72,9 +61,6 @@ func (self *MemoryStorage) Get(key string, value *string) error {
 }
 
 func (self *MemoryStorage) Set(kv *KeyValue, succ *bool) error {
-	self.strLock.Lock()
-	defer self.strLock.Unlock()
-
 	if kv.Value != "" {
 		self.strs[kv.Key] = kv.Value
 	} else {
@@ -91,9 +77,6 @@ func (self *MemoryStorage) Set(kv *KeyValue, succ *bool) error {
 }
 
 func (self *MemoryStorage) Keys(p *Pattern, r *List) error {
-	self.strLock.Lock()
-	defer self.strLock.Unlock()
-
 	ret := make([]string, 0, len(self.strs))
 
 	for k := range self.strs {
@@ -115,9 +98,6 @@ func (self *MemoryStorage) Keys(p *Pattern, r *List) error {
 }
 
 func (self *MemoryStorage) ListKeys(p *Pattern, r *List) error {
-	self.listLock.Lock()
-	defer self.listLock.Unlock()
-
 	ret := make([]string, 0, len(self.lists))
 	for k := range self.lists {
 		if p.Match(k) {
@@ -138,9 +118,6 @@ func (self *MemoryStorage) ListKeys(p *Pattern, r *List) error {
 }
 
 func (self *MemoryStorage) ListGet(key string, ret *List) error {
-	self.listLock.Lock()
-	defer self.listLock.Unlock()
-
 	if lst, found := self.lists[key]; !found {
 		ret.L = []string{}
 	} else {
@@ -161,9 +138,6 @@ func (self *MemoryStorage) ListGet(key string, ret *List) error {
 }
 
 func (self *MemoryStorage) ListAppend(kv *KeyValue, succ *bool) error {
-	self.listLock.Lock()
-	defer self.listLock.Unlock()
-
 	lst, found := self.lists[kv.Key]
 	if !found {
 		lst = list.New()
@@ -182,9 +156,6 @@ func (self *MemoryStorage) ListAppend(kv *KeyValue, succ *bool) error {
 }
 
 func (self *MemoryStorage) ListRemove(kv *KeyValue, n *int) error {
-	self.listLock.Lock()
-	defer self.listLock.Unlock()
-
 	*n = 0
 
 	lst, found := self.lists[kv.Key]
