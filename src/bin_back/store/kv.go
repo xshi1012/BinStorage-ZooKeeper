@@ -37,7 +37,7 @@ type KeyString interface {
 
 	// List all the keys of non-empty pairs where the key matches
 	// the given pattern.
-	Keys(p *Pattern, list *List) error
+	Keys(pattern *Pattern, list *List) error
 }
 
 // Key-list interfaces.
@@ -58,5 +58,5 @@ type KeyList interface {
 
 	// List all the keys of non-empty lists, where the key matches
 	// the given pattern.
-	ListKeys(p *Pattern, list *List) error
+	ListKeys(pattern *Pattern, list *List) error
 }

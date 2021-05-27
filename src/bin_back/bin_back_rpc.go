@@ -14,6 +14,7 @@ type BinBackRPC interface {
 	ListGet(key string, list *store.List) error
 	ListAppend(kv *store.KeyValue, succ *bool) error
 	ListRemove(kv *store.KeyValue, n *int) error
+	ListKeys(pattern *store.Pattern, list *store.List) error
 
 	ForwardLog(log *Log, succ *bool) error
 }

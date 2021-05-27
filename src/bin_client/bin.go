@@ -162,5 +162,30 @@ func (self *bin) ListRemove(kv *store.KeyValue, n *int) error {
 }
 
 func (self *bin) ListKeys(p *store.Pattern, list *store.List) error {
-	panic("todo")
+	realPattern := store.Pattern{Prefix: bin_config.ListLog + bin_config.Delimiter + self.key + colon.Escape(p.Prefix), Suffix: p.Suffix}
+
+	single, e := self.binClient.getBinSingleForBin(self.name)
+	if e != nil {
+		return e
+	}
+
+	unescaped := store.List{L: nil}
+	e = single.ListKeys(&realPattern, &unescaped)
+	if e != nil {
+		single, e = self.binClient.getBinSingleForBin(self.name)
+		if e != nil {
+			return e
+		}
+		e = single.ListKeys(&realPattern, &unescaped)
+		if e != nil {
+			return e
+		}
+	}
+
+	list.L = make([]string, 0, len(unescaped.L))
+	for _, v := range unescaped.L {
+		list.L = append(list.L, colon.Unescape(strings.Split(v, bin_config.Delimiter)[2]))
+	}
+
+	return nil
 }

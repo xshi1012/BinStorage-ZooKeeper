@@ -26,6 +26,7 @@ const (
 	OperationListGet = ServiceName + ".ListGet"
 	OperationListAppend = ServiceName + ".ListAppend"
 	OperationListRemove = ServiceName + ".ListRemove"
+	OperationListKeys = ServiceName + ".ListKeys"
 
 	BackOperationForward = ServiceName + ".ForwardLog"
 

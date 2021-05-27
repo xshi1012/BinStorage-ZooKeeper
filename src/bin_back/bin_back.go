@@ -77,7 +77,30 @@ func (self *binBack) Set(kv *store.KeyValue, succ *bool) error {
 }
 
 func (self *binBack) Keys(pattern *store.Pattern, list *store.List) error {
-	return self.config.Store.ListKeys(pattern, list)
+	keys := store.List{L: nil}
+	_ = self.config.Store.ListKeys(pattern, &keys)
+
+	exists := make([]string, 0)
+
+	for _, v := range keys.L {
+		lock := self.getLockForKey(v)
+		lock.Lock()
+
+		l := store.List{L: nil}
+		_ = self.config.Store.ListGet(v, &l)
+
+		logs, _ := ParseLog(l.L)
+		log := ReplayKeyValueLog(logs)
+
+		if log.Value != "" {
+			exists = append(exists, v)
+		}
+
+		lock.Unlock()
+	}
+
+	list.L = exists
+	return nil
 }
 
 func (self *binBack) ListGet(key string, list *store.List) error {
@@ -132,6 +155,33 @@ func (self *binBack) ListRemove(kv *store.KeyValue, n *int) error {
 	}
 	*n = self.applyListDelete(log)
 
+	return nil
+}
+
+func (self *binBack) ListKeys(pattern *store.Pattern, list *store.List) error {
+	keys := store.List{L: nil}
+	_ = self.config.Store.ListKeys(pattern, &keys)
+
+	exists := make([]string, 0)
+
+	for _, v := range keys.L {
+		lock := self.getLockForKey(v)
+		lock.Lock()
+
+		l := store.List{L: nil}
+		_ = self.config.Store.ListGet(v, &l)
+
+		logs, _ := ParseListLog(l.L)
+		ll := ReplayListLog(logs)
+
+		if len(ll) > 0 {
+			exists = append(exists, v)
+		}
+
+		lock.Unlock()
+	}
+
+	list.L = exists
 	return nil
 }
 

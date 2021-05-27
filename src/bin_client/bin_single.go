@@ -32,139 +32,42 @@ func (self *binSingle) tryConnect() error {
 
 func (self *binSingle) Clock(ret *uint64) error {
 	*ret = 0
-
-	if self.conn == nil {
-		e := self.tryConnect()
-		if e != nil {
-			return e
-		}
-	}
-
-	e := self.conn.Call(bin_config.OperationClock, uint64(0), ret)
-	if e == rpc.ErrShutdown {
-		e = self.tryConnect()
-		if e != nil {
-			return e
-		}
-
-		e = self.conn.Call(bin_config.OperationClock, uint64(0), ret)
-	}
-	return e
+	return self.callOperation(bin_config.OperationClock, uint64(0), ret)
 }
 
 func (self *binSingle) Get(key string, value *string) error {
 	*value = ""
-
-	// try connect if not connected
-	if self.conn == nil {
-		e := self.tryConnect()
-		if e != nil {
-			return e
-		}
-	}
-
-	// perform the call
-	e := self.conn.Call(bin_config.OperationGet, key, value)
-
-	// retry once on shutdown error
-	if e == rpc.ErrShutdown {
-		e = self.tryConnect()
-		if e != nil {
-			return e
-		}
-
-		e = self.conn.Call(bin_config.OperationGet, key, value)
-	}
-	return e
+	return self.callOperation(bin_config.OperationGet, key, value)
 }
 
 func (self *binSingle) Set(kv *store.KeyValue, succ *bool) error {
-	if self.conn == nil {
-		e := self.tryConnect()
-		if e != nil {
-			return e
-		}
-	}
-
-	e := self.conn.Call(bin_config.OperationSet, kv, succ)
-	if e == rpc.ErrShutdown {
-		e = self.tryConnect()
-		if e != nil {
-			return e
-		}
-
-		e = self.conn.Call(bin_config.OperationSet, kv, succ)
-	}
-	return e
+	return self.callOperation(bin_config.OperationSet, kv, succ)
 }
 
 func (self *binSingle) Keys(pattern *store.Pattern, list *store.List) error {
-	if self.conn == nil {
-		e := self.tryConnect()
-		if e != nil {
-			return e
-		}
-	}
-
-	e := self.conn.Call(bin_config.OperationKeys, pattern, list)
-	if e == rpc.ErrShutdown {
-		e = self.tryConnect()
-		if e != nil {
-			return e
-		}
-
-		e = self.conn.Call(bin_config.OperationKeys, pattern, list)
-	}
-	return e
+	return self.callOperation(bin_config.OperationKeys, pattern, list)
 }
 
 func (self *binSingle) ListGet(key string, list *store.List) error {
 	list.L = make([]string, 0)
-
-	if self.conn == nil {
-		e := self.tryConnect()
-		if e != nil {
-			return e
-		}
-	}
-
-	e := self.conn.Call(bin_config.OperationListGet, key, list)
-	if e == rpc.ErrShutdown {
-		e = self.tryConnect()
-		if e != nil {
-			return e
-		}
-
-		e = self.conn.Call(bin_config.OperationListGet, key, list)
-	}
-	return e
+	return self.callOperation(bin_config.OperationListGet, key, list)
 }
 
 func (self *binSingle) ListAppend(kv *store.KeyValue, succ *bool) error {
 	*succ = false
-
-	if self.conn == nil {
-		e := self.tryConnect()
-		if e != nil {
-			return e
-		}
-	}
-
-	e := self.conn.Call(bin_config.OperationListAppend, kv, succ)
-	if e == rpc.ErrShutdown {
-		e = self.tryConnect()
-		if e != nil {
-			return e
-		}
-
-		e = self.conn.Call(bin_config.OperationListAppend, kv, succ)
-	}
-	return e
+	return self.callOperation(bin_config.OperationListAppend, kv, succ)
 }
 
 func (self *binSingle) ListRemove(kv *store.KeyValue, n *int) error {
 	*n = 0
+	return self.callOperation(bin_config.OperationListRemove, kv, n)
+}
 
+func (self *binSingle) ListKeys(pattern *store.Pattern, list *store.List) error {
+	return self.callOperation(bin_config.OperationListKeys, pattern, list)
+}
+
+func (self *binSingle) callOperation(operation string, input interface{}, output interface{}) error {
 	if self.conn == nil {
 		e := self.tryConnect()
 		if e != nil {
@@ -172,14 +75,14 @@ func (self *binSingle) ListRemove(kv *store.KeyValue, n *int) error {
 		}
 	}
 
-	e := self.conn.Call(bin_config.OperationListRemove, kv, n)
+	e := self.conn.Call(operation, input, output)
 	if e == rpc.ErrShutdown {
 		e = self.tryConnect()
 		if e != nil {
 			return e
 		}
 
-		e = self.conn.Call(bin_config.OperationListRemove, kv, n)
+		e = self.conn.Call(operation, input, output)
 	}
 	return e
 }
