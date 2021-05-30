@@ -10,6 +10,7 @@ type BackConfig struct {
 	Store store.Storage // the underlying storage it should use
 	Ready chan<- bool   // send a value when server is ready
 	Keepers []string    // list of zookeeper servers
+	Backs   []string
 }
 
 const (

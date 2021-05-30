@@ -132,7 +132,7 @@ func makeServer() trib.Server {
 	rc, e := bin_config.LoadRC(*frc)
 	ne(e)
 
-	c := bin_client.NewBinClient(rc.Keepers)
+	c := bin_client.NewBinClient(rc.Keepers, rc.Backs)
 
 	return trib.NewFrontServer(c)
 }

@@ -4,7 +4,7 @@ import (
 	"BinStorageZK/src/bin_back/bin_config"
 	"BinStorageZK/src/bin_back/store"
 	"BinStorageZK/src/synchronization"
-	"BinStorageZK/src/utils"
+	"BinStorageZK/src/utils/node_ring"
 	"fmt"
 	"github.com/go-zookeeper/zk"
 	"sort"
@@ -17,16 +17,19 @@ type binClient struct {
 	bins map[string]*bin
 	keepers []string
 	currentMembers []string
+	ring *node_ring.NodeRing
+	backs []string
 }
 
-func NewBinClient(keepers []string) *binClient {
-	binClient := new(binClient)
-	binClient.clients = make(map[string]*binSingle, 0)
-	binClient.bins = make(map[string]*bin)
-	binClient.group = nil
-	binClient.keepers = keepers
+func NewBinClient(keepers []string, backs []string) *binClient {
+	bClient := new(binClient)
+	bClient.clients = make(map[string]*binSingle, 0)
+	bClient.bins = make(map[string]*bin)
+	bClient.group = nil
+	bClient.keepers = keepers
+	bClient.backs = backs
 
-	return binClient
+	return bClient
 }
 
 func (self *binClient)Bin(name string) store.Storage {
@@ -35,10 +38,10 @@ func (self *binClient)Bin(name string) store.Storage {
 		return b
 	}
 
-	bin := NewBin(name, self)
-	self.bins[name] = bin
+	b = NewBin(name, self)
+	self.bins[name] = b
 
-	return bin
+	return b
 }
 
 func (self *binClient) getBinSingleForBin(name string, replica bool) (*binSingle, error) {
@@ -55,11 +58,13 @@ func (self *binClient) getBinSingleForBin(name string, replica bool) (*binSingle
 		}
 		sort.Strings(members)
 		self.currentMembers = members
+		self.ring = node_ring.NewNodeRing(self.backs, members)
 
 		go func() {
 			_ = self.group.Listen(func(members []string) {
 				sort.Strings(members)
 				self.currentMembers = members
+				self.ring = node_ring.NewNodeRing(self.backs, members)
 			})
 
 			// if Listen returns, set this to nil so that it retries next time
@@ -71,11 +76,11 @@ func (self *binClient) getBinSingleForBin(name string, replica bool) (*binSingle
 		return nil, fmt.Errorf("NO BACKEND FOUND")
 	}
 
-	h := utils.StringToFnvNumber(name)
+	i := 0
 	if replica {
-		h += 1
+		i = 1
 	}
-	addr := self.currentMembers[h % len(self.currentMembers)]
+	addr := self.ring.GetIthForKey(name, i)
 
 	c, ok := self.clients[addr]
 	if !ok {

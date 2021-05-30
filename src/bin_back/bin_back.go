@@ -5,6 +5,7 @@ import (
 	"BinStorageZK/src/bin_back/store"
 	"BinStorageZK/src/synchronization"
 	"BinStorageZK/src/utils"
+	"BinStorageZK/src/utils/node_ring"
 	"github.com/go-zookeeper/zk"
 	"net"
 	"net/http"
@@ -26,16 +27,18 @@ type binBack struct {
 	group          *synchronization.GroupMember
 	currentMembers []string
 	zkClock        *synchronization.DistriButedAtomicUint64
+	ring 		   *node_ring.NodeRing
 }
 
 func NewBinBack(b *bin_config.BackConfig) *binBack {
-	binBack := new(binBack)
-	binBack.config = b
-	binBack.backClients = make(map[string]*backClient)
-	binBack.keyLocks = make(map[string]*sync.Mutex)
-	binBack.ready = false
+	bBack := new(binBack)
+	bBack.config = b
+	bBack.backClients = make(map[string]*backClient)
+	bBack.keyLocks = make(map[string]*sync.Mutex)
+	bBack.ready = false
+	bBack.ring = node_ring.NewNodeRing(b.Backs, make([]string, 0))
 
-	return binBack
+	return bBack
 }
 
 /* RPC handlers */
@@ -340,6 +343,9 @@ func (self *binBack) Run() error {
 
 	self.memberLock.Lock()
 	self.currentMembers = members
+	for _, v := range members {
+		self.ring.NodeJoin(v)
+	}
 	self.memberLock.Unlock()
 
 	// join the backend servers
@@ -364,23 +370,32 @@ func (self *binBack) handleGroupMemberChange(members []string) {
 
 	self.memberLock.Lock()
 	if len(self.currentMembers) == 0 {
+		self.ring.NodeJoin(self.config.Addr)
 		self.ready = true
 	} else if len(members) < len(self.currentMembers) {
 		// node leaves
 		for _, v := range self.currentMembers {
 			if utils.IndexOf(members, v) < 0 {
 				self.handleNodeLeave(self.currentMembers, v)
+				self.ring.NodeLeave(v)
+				break
 			}
-			break
 		}
 
 	} else {
 		if utils.IndexOf(self.currentMembers, self.config.Addr) < 0 {
 			// self join
 			self.handleSelfJoin(members)
+			self.ring.NodeJoin(self.config.Addr)
 			self.ready = true
 		} else {
-			// other join, do not care
+			// other join
+			for _, v := range members {
+				if utils.IndexOf(self.currentMembers, v) < 0 {
+					self.ring.NodeJoin(v)
+					break
+				}
+			}
 		}
 	}
 	self.currentMembers = members
@@ -576,11 +591,8 @@ func (self *binBack) applyListDelete(log *Log) int {
 }
 
 func (self *binBack) determineIfPrimary(addr string, bin string, members []string) bool {
-	h := utils.StringToFnvNumber(bin)
-	if addr == members[h % len(members)] {
-		return true
-	}
-	return false
+	p := self.ring.GetPrimaryForKeyInView(bin, members)
+	return addr == p
 }
 
 func (self *binBack) forwardReadRequest(bin string, operation string, input interface{}, output interface{}) error {

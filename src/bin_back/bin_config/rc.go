@@ -29,6 +29,7 @@ func (self *RC) BackConfig(i int, s store.Storage) *BackConfig {
 	ret.Store = s
 	ret.Ready = make(chan bool, 1)
 	ret.Keepers = self.Keepers
+	ret.Backs = self.Backs
 
 	return ret
 }
