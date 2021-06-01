@@ -579,11 +579,15 @@ func (self *binBack) applyListDelete(log *Log) int {
 		if lg.Clock >= log.Clock {
 			break
 		}
-		if lg.Clock < log.Clock && lg.Value == log.Value && lg.Operation == bin_config.ListLogAppend {
+		if lg.Clock < log.Clock && lg.Value == log.Value{
 			d := 0
 			s, _ := utils.ObjectToString(lg)
 			_ = self.config.Store.ListRemove(store.KV(log.Key, s), &d)
-			n += d
+
+			// only count if the lg is an "append" operation
+			if lg.Operation == bin_config.ListLogAppend{
+				n += d
+			}
 		}
 	}
 

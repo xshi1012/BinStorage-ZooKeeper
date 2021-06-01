@@ -1,8 +1,0 @@
-{
-    "Backs": [
-        "localhost:5000"
-    ],
-    "Keepers": [
-        "localhost:32181"
-    ]
-}
