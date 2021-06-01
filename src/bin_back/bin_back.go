@@ -579,7 +579,7 @@ func (self *binBack) applyListDelete(log *Log) int {
 		if lg.Clock >= log.Clock {
 			break
 		}
-		if lg.Clock < log.Clock && lg.Value == log.Value {
+		if lg.Clock < log.Clock && lg.Value == log.Value && lg.Operation == bin_config.ListLogAppend {
 			d := 0
 			s, _ := utils.ObjectToString(lg)
 			_ = self.config.Store.ListRemove(store.KV(log.Key, s), &d)

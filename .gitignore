@@ -26,3 +26,6 @@ pkg/
 # zookeeper data
 config/zookeeper_configs/**/data/*
 !**/*myid
+
+# rc file
+**/bins.rc
