@@ -6,7 +6,6 @@ import (
 	"BinStorageZK/src/synchronization"
 	"BinStorageZK/src/utils"
 	"BinStorageZK/src/utils/node_ring"
-	"github.com/go-zookeeper/zk"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -14,20 +13,23 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-zookeeper/zk"
 )
 
 type binBack struct {
-	ready		   bool
+	ready          bool
 	backClients    map[string]*backClient
 	memberLock     sync.Mutex
 	keyLocks       map[string]*sync.Mutex
 	lockMapLock    sync.Mutex
+	localLock      sync.Mutex
 	config         *bin_config.BackConfig
 	zkConn         *zk.Conn
 	group          *synchronization.GroupMember
 	currentMembers []string
 	zkClock        *synchronization.DistriButedAtomicUint64
-	ring 		   *node_ring.NodeRing
+	ring           *node_ring.NodeRing
 }
 
 func NewBinBack(b *bin_config.BackConfig) *binBack {
@@ -44,6 +46,8 @@ func NewBinBack(b *bin_config.BackConfig) *binBack {
 /* RPC handlers */
 // client RPCs
 func (self *binBack) Clock(_ uint64, ret *uint64) error {
+	self.localLock.Lock()
+	defer self.localLock.Unlock()
 	clock, e := self.zkClock.GetAndIncrement()
 	*ret = clock
 	return e
@@ -75,6 +79,8 @@ func (self *binBack) Set(kv *store.KeyValue, succ *bool) error {
 	lock.Lock()
 	defer lock.Unlock()
 
+	self.localLock.Lock()
+	defer self.localLock.Unlock()
 	clock, e := self.zkClock.GetAndIncrement()
 	if e != nil {
 		return e
@@ -143,6 +149,8 @@ func (self *binBack) ListAppend(kv *store.KeyValue, succ *bool) error {
 	lock.Lock()
 	defer lock.Unlock()
 
+	self.localLock.Lock()
+	defer self.localLock.Unlock()
 	clock, e := self.zkClock.GetAndIncrement()
 	if e != nil {
 		return e
@@ -160,6 +168,8 @@ func (self *binBack) ListRemove(kv *store.KeyValue, n *int) error {
 	lock.Lock()
 	defer lock.Unlock()
 
+	self.localLock.Lock()
+	defer self.localLock.Unlock()
 	clock, e := self.zkClock.GetAndIncrement()
 	if e != nil {
 		return e
@@ -355,7 +365,7 @@ func (self *binBack) Run() error {
 		self.failOnStart()
 		return e
 	}
-	
+
 	if self.config.Ready != nil {
 		self.config.Ready <- true
 	}
@@ -410,9 +420,9 @@ func (self *binBack) handleNodeLeave(oldMembers []string, whoLeft string) {
 
 	i := utils.IndexOf(oldMembers, whoLeft)
 	i += len(oldMembers)
-	prev := oldMembers[(i - 1) % len(oldMembers)]
-	next := oldMembers[(i + 1) % len(oldMembers)]
-	nNext := oldMembers[(i + 2) % len(oldMembers)]
+	prev := oldMembers[(i-1)%len(oldMembers)]
+	next := oldMembers[(i+1)%len(oldMembers)]
+	nNext := oldMembers[(i+2)%len(oldMembers)]
 
 	if self.config.Addr == next {
 		prevClient, ok := self.backClients[prev]
@@ -463,9 +473,9 @@ func (self *binBack) handleNodeLeave(oldMembers []string, whoLeft string) {
 func (self *binBack) handleSelfJoin(newMembers []string) {
 	i := utils.IndexOf(newMembers, self.config.Addr)
 	i += len(newMembers)
-	prev := newMembers[(i - 1) % len(newMembers)]
-	next := newMembers[(i + 1) % len(newMembers)]
-	nNext := newMembers[(i + 2) % len(newMembers)]
+	prev := newMembers[(i-1)%len(newMembers)]
+	next := newMembers[(i+1)%len(newMembers)]
+	nNext := newMembers[(i+2)%len(newMembers)]
 
 	nextClient, ok := self.backClients[next]
 	if !ok {
@@ -536,7 +546,7 @@ func (self *binBack) sendLogToReplica(log *Log) error {
 	self.memberLock.Lock()
 
 	i := utils.IndexOf(self.currentMembers, self.config.Addr) + 1
-	waitForMember = self.currentMembers[i % len(self.currentMembers)]
+	waitForMember = self.currentMembers[i%len(self.currentMembers)]
 
 	self.memberLock.Unlock()
 
@@ -579,13 +589,13 @@ func (self *binBack) applyListDelete(log *Log) int {
 		if lg.Clock >= log.Clock {
 			break
 		}
-		if lg.Clock < log.Clock && lg.Value == log.Value{
+		if lg.Clock < log.Clock && lg.Value == log.Value {
 			d := 0
 			s, _ := utils.ObjectToString(lg)
 			_ = self.config.Store.ListRemove(store.KV(log.Key, s), &d)
 
 			// only count if the lg is an "append" operation
-			if lg.Operation == bin_config.ListLogAppend{
+			if lg.Operation == bin_config.ListLogAppend {
 				n += d
 			}
 		}
@@ -600,11 +610,17 @@ func (self *binBack) determineIfPrimary(addr string, bin string, members []strin
 }
 
 func (self *binBack) forwardReadRequest(bin string, operation string, input interface{}, output interface{}) error {
+	self.memberLock.Lock()
+	defer self.memberLock.Unlock()
+	if len(self.currentMembers) == 0 {
+		return nil
+	}
+
 	target := ""
 	if self.determineIfPrimary(self.config.Addr, bin, self.currentMembers) {
-		target = self.currentMembers[(utils.IndexOf(self.currentMembers, self.config.Addr) + 1) % len(self.currentMembers)]
+		target = self.currentMembers[(utils.IndexOf(self.currentMembers, self.config.Addr)+1)%len(self.currentMembers)]
 	} else {
-		target = self.currentMembers[(utils.IndexOf(self.currentMembers, self.config.Addr) - 1) % len(self.currentMembers)]
+		target = self.currentMembers[(utils.IndexOf(self.currentMembers, self.config.Addr)-1)%len(self.currentMembers)]
 	}
 
 	client, ok := self.backClients[target]

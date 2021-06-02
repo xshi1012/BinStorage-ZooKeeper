@@ -5,7 +5,6 @@ import (
 	"BinStorageZK/src/bin_client"
 	"BinStorageZK/src/utils"
 	"fmt"
-	"log"
 	"sort"
 	"strconv"
 	"sync"
@@ -27,12 +26,12 @@ const (
  */
 type Front struct {
 	BinStorage bin_client.BinStorage
-	Users *store.List
+	Users      *store.List
 }
 
 type FollowLog struct {
 	Operation string
-	Clock uint64
+	Clock     uint64
 }
 
 func NewFront(binStorage bin_client.BinStorage) *Front {
@@ -55,7 +54,7 @@ func (self *Front) userExists(user string) (bool, error) {
 	}
 
 	res := store.List{L: nil}
-	binString := UsersBin + strconv.Itoa(utils.StringToFnvNumber(user) % NumOfUserBins)
+	binString := UsersBin + strconv.Itoa(utils.StringToFnvNumber(user)%NumOfUserBins)
 
 	client := self.BinStorage.Bin(binString)
 	e := client.ListGet(SignUpKey, &res)
@@ -100,7 +99,7 @@ func (self *Front) SignUp(user string) error {
 		return fmt.Errorf("USER ALREADY EXISTS")
 	}
 
-	binString := UsersBin + strconv.Itoa(utils.StringToFnvNumber(user) % NumOfUserBins)
+	binString := UsersBin + strconv.Itoa(utils.StringToFnvNumber(user)%NumOfUserBins)
 	client := self.BinStorage.Bin(binString)
 
 	succ := false
@@ -124,7 +123,7 @@ func (self *Front) ListUsers() ([]string, error) {
 	for i := 0; i < NumOfUserBins; i++ {
 		binString := UsersBin + strconv.Itoa(i)
 		client := self.BinStorage.Bin(binString)
-		res := store.List{L:nil}
+		res := store.List{L: nil}
 
 		e := client.ListGet(SignUpKey, &res)
 		if e != nil {
@@ -135,7 +134,7 @@ func (self *Front) ListUsers() ([]string, error) {
 		self.Users.L = utils.Unique(self.Users.L)
 
 		if len(self.Users.L) >= MinListUser {
-			break;
+			break
 		}
 	}
 
@@ -215,14 +214,14 @@ func (self *Front) Tribs(user string) ([]*Trib, error) {
 	sort.Sort(TribList(tribs))
 
 	if len(tribs) > MaxTribFetch {
-		garbage := tribs[:len(tribs) - MaxTribFetch]
-		go func(){
-			err := self.deletePosts(user, garbage)
-			if err != nil {
-				log.Println("Failed to delete posts: " + err.Error())
-			}
-		}()
-		tribs = tribs[len(tribs) - MaxTribFetch:]
+		// garbage := tribs[:len(tribs)-MaxTribFetch]
+		// go func() {
+		// 	err := self.deletePosts(user, garbage)
+		// 	if err != nil {
+		// 		log.Println("Failed to delete posts: " + err.Error())
+		// 	}
+		// }()
+		tribs = tribs[len(tribs)-MaxTribFetch:]
 	}
 
 	return tribs, nil
@@ -340,7 +339,7 @@ func (self *Front) IsFollowing(who, whom string) (bool, error) {
 	client := self.BinStorage.Bin(who)
 
 	out := store.List{L: nil}
-	e = client.ListGet(FollowKey + whom, &out)
+	e = client.ListGet(FollowKey+whom, &out)
 	if e != nil {
 		return false, e
 	}
@@ -348,7 +347,7 @@ func (self *Front) IsFollowing(who, whom string) (bool, error) {
 	if len(out.L) > 0 && out.L[0] == Follow {
 		return true, nil
 	}
-	 return false, nil
+	return false, nil
 }
 
 func (self *Front) Following(who string) ([]string, error) {
@@ -420,7 +419,7 @@ func (self *Front) Home(user string) ([]*Trib, error) {
 	sort.Sort(TribList(tribs))
 
 	if len(tribs) > MaxTribFetch {
-		return tribs[len(tribs) - MaxTribFetch:], nil
+		return tribs[len(tribs)-MaxTribFetch:], nil
 	}
 
 	return tribs, nil
