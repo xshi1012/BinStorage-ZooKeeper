@@ -29,8 +29,9 @@ func test_clock(finish chan<- bool) {
 		panic(e)
 	}
 
+	v := uint64(0)
 	for i := 0; i < 10; i++ {
-		v, e := clock.GetAndIncrement()
+		v, e = clock.GetAndIncrement(v + 1)
 		if e != nil {
 			panic(e)
 		} else {

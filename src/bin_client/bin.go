@@ -28,7 +28,7 @@ func (self *bin) Clock(atLeast uint64, ret *uint64) error {
 		return e
 	}
 
-	return single.Clock(ret)
+	return single.Clock(atLeast, ret)
 }
 
 func (self *bin) Get(key string, value *string) error {

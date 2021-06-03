@@ -41,7 +41,7 @@ func (self *DistriButedAtomicUint64) Init() error {
 	return e
 }
 
-func (self *DistriButedAtomicUint64) GetAndIncrement() (uint64, error) {
+func (self *DistriButedAtomicUint64) GetAndIncrement(atLeast uint64) (uint64, error) {
 	e := self.lock.Lock()
 	if e != nil {
 		return 0, e
@@ -54,11 +54,14 @@ func (self *DistriButedAtomicUint64) GetAndIncrement() (uint64, error) {
 		return 0, e
 	}
 	v := binary.LittleEndian.Uint64(b)
-	newV := make([]byte, 8)
-	binary.LittleEndian.PutUint64(newV, v + 1)
-	_, e = self.conn.Set(fullPath, newV, -1)
-	if e != nil {
-		return 0, e
+
+	if atLeast > v {
+		newV := make([]byte, 8)
+		binary.LittleEndian.PutUint64(newV, atLeast)
+		_, e = self.conn.Set(fullPath, newV, -1)
+		if e != nil {
+			return 0, e
+		}
 	}
 
 	return v, nil
