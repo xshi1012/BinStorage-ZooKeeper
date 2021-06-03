@@ -33,17 +33,17 @@ func makeServer() trib.Server {
 	return trib.NewFrontServer(c)
 }
 
-// func BenchmarkSignUp(b *testing.B) {
-// 	server := makeServer()
-// 	//fmt.Println(strings.ToLower(fake.FirstName()))
+func BenchmarkSignUp(b *testing.B) {
+	server := makeServer()
+	//fmt.Println(strings.ToLower(fake.FirstName()))
 
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		id := shortuuid.New()
-// 		a := "a" + strings.ToLower(id[:10])
-// 		ne(server.SignUp(a))
-// 	}
-// }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		id := shortuuid.New()
+		a := "a" + strings.ToLower(id[:10])
+		ne(server.SignUp(a))
+	}
+}
 
 // func BenchmarkListUsers(b *testing.B) {
 // 	server := makeServer()
@@ -168,35 +168,35 @@ func makeServer() trib.Server {
 // 	}
 // }
 
-func BenchmarkHome(b *testing.B) {
-	server := makeServer()
-	clk := uint64(0)
-	server.SignUp("fenglu")
-	var s []string
-	for i := 0; i < 3; i++ {
-		id := shortuuid.New()
-		a := "a" + strings.ToLower(id[:10])
-		//fmt.Println(a + " " + strconv.Itoa(b.N))
-		s = append(s, a)
-		ne(server.SignUp(a))
-	}
+// func BenchmarkHome(b *testing.B) {
+// 	server := makeServer()
+// 	clk := uint64(0)
+// 	server.SignUp("fenglu")
+// 	var s []string
+// 	for i := 0; i < 3; i++ {
+// 		id := shortuuid.New()
+// 		a := "a" + strings.ToLower(id[:10])
+// 		//fmt.Println(a + " " + strconv.Itoa(b.N))
+// 		s = append(s, a)
+// 		ne(server.SignUp(a))
+// 	}
 
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 100; j++ {
-			server.Post(s[i], "hello, world"+strconv.Itoa(j), clk)
-		}
-	}
+// 	for i := 0; i < 3; i++ {
+// 		for j := 0; j < 100; j++ {
+// 			server.Post(s[i], "hello, world"+strconv.Itoa(j), clk)
+// 		}
+// 	}
 
-	for i := 0; i < 100; i++ {
-		server.Post("fenglu", "hello, world"+strconv.Itoa(i), clk)
-	}
+// 	for i := 0; i < 100; i++ {
+// 		server.Post("fenglu", "hello, world"+strconv.Itoa(i), clk)
+// 	}
 
-	for i := 0; i < 3; i++ {
-		server.Follow("fenglu", s[i])
-	}
+// 	for i := 0; i < 3; i++ {
+// 		server.Follow("fenglu", s[i])
+// 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		server.Home("fenglu")
-	}
-}
+// 	b.ResetTimer()
+// 	for i := 0; i < b.N; i++ {
+// 		server.Home("fenglu")
+// 	}
+// }
