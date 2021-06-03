@@ -6,6 +6,7 @@ import (
 	"BinStorageZK/src/trib"
 	"flag"
 	"log"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -172,7 +173,7 @@ func BenchmarkHome(b *testing.B) {
 	clk := uint64(0)
 	server.SignUp("fenglu")
 	var s []string
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < 3; i++ {
 		id := shortuuid.New()
 		a := "a" + strings.ToLower(id[:10])
 		//fmt.Println(a + " " + strconv.Itoa(b.N))
@@ -180,13 +181,17 @@ func BenchmarkHome(b *testing.B) {
 		ne(server.SignUp(a))
 	}
 
-	for i := 0; i < b.N; i++ {
-		server.Post(s[i], "hello, world", clk)
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 100; j++ {
+			server.Post(s[i], "hello, world"+strconv.Itoa(j), clk)
+		}
 	}
 
-	server.Post("fenglu", "hello, world", clk)
+	for i := 0; i < 100; i++ {
+		server.Post("fenglu", "hello, world"+strconv.Itoa(i), clk)
+	}
 
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < 3; i++ {
 		server.Follow("fenglu", s[i])
 	}
 
