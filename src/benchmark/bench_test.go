@@ -6,9 +6,10 @@ import (
 	"BinStorageZK/src/trib"
 	"flag"
 	"log"
+	"strings"
 	"testing"
 
-	"github.com/icrowley/fake"
+	"github.com/lithammer/shortuuid"
 )
 
 var (
@@ -31,17 +32,15 @@ func makeServer() trib.Server {
 	return trib.NewFrontServer(c)
 }
 
-// func TestServer(t *testing.T) {
-// 	server := makeServer()
-// 	tribtest.CheckServer(t, server)
-// }
-
 // func BenchmarkSignUp(b *testing.B) {
 // 	server := makeServer()
-// 	//fmt.Println(b.N)
+// 	//fmt.Println(strings.ToLower(fake.FirstName()))
+
 // 	b.ResetTimer()
 // 	for i := 0; i < b.N; i++ {
-// 		server.SignUp(fake.FirstName())
+// 		id := shortuuid.New()
+// 		a := "a" + strings.ToLower(id[:10])
+// 		ne(server.SignUp(a))
 // 	}
 // }
 
@@ -86,9 +85,11 @@ func makeServer() trib.Server {
 // 	server.SignUp("fenglu")
 // 	var s []string
 // 	for i := 0; i < b.N; i++ {
-// 		a := fake.FirstName()
+// 		id := shortuuid.New()
+// 		a := "a" + strings.ToLower(id[:10])
+// 		//fmt.Println(a + " " + strconv.Itoa(b.N))
 // 		s = append(s, a)
-// 		server.SignUp(a)
+// 		ne(server.SignUp(a))
 // 	}
 
 // 	b.ResetTimer()
@@ -103,9 +104,11 @@ func makeServer() trib.Server {
 // 	server.SignUp("fenglu")
 // 	var s []string
 // 	for i := 0; i < b.N; i++ {
-// 		a := fake.FirstName()
+// 		id := shortuuid.New()
+// 		a := "a" + strings.ToLower(id[:10])
+// 		//fmt.Println(a + " " + strconv.Itoa(b.N))
 // 		s = append(s, a)
-// 		server.SignUp(a)
+// 		ne(server.SignUp(a))
 // 	}
 
 // 	for i := 0; i < b.N; i++ {
@@ -124,9 +127,11 @@ func makeServer() trib.Server {
 // 	server.SignUp("fenglu")
 // 	var s []string
 // 	for i := 0; i < b.N; i++ {
-// 		a := fake.FirstName()
+// 		id := shortuuid.New()
+// 		a := "a" + strings.ToLower(id[:10])
+// 		//fmt.Println(a + " " + strconv.Itoa(b.N))
 // 		s = append(s, a)
-// 		server.SignUp(a)
+// 		ne(server.SignUp(a))
 // 	}
 
 // 	for i := 0; i < b.N; i++ {
@@ -145,9 +150,11 @@ func makeServer() trib.Server {
 // 	server.SignUp("fenglu")
 // 	var s []string
 // 	for i := 0; i < b.N; i++ {
-// 		a := fake.FirstName()
+// 		id := shortuuid.New()
+// 		a := "a" + strings.ToLower(id[:10])
+// 		//fmt.Println(a + " " + strconv.Itoa(b.N))
 // 		s = append(s, a)
-// 		server.SignUp(a)
+// 		ne(server.SignUp(a))
 // 	}
 
 // 	for i := 0; i < b.N; i++ {
@@ -166,9 +173,11 @@ func BenchmarkHome(b *testing.B) {
 	server.SignUp("fenglu")
 	var s []string
 	for i := 0; i < b.N; i++ {
-		a := fake.FirstName()
+		id := shortuuid.New()
+		a := "a" + strings.ToLower(id[:10])
+		//fmt.Println(a + " " + strconv.Itoa(b.N))
 		s = append(s, a)
-		server.SignUp(a)
+		ne(server.SignUp(a))
 	}
 
 	for i := 0; i < b.N; i++ {
