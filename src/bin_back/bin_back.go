@@ -24,6 +24,7 @@ type binBack struct {
 	keyLocks       map[string]*sync.Mutex
 	lockMapLock    sync.Mutex
 	localLock      sync.Mutex
+	localClock     uint64
 	config         *bin_config.BackConfig
 	zkConn         *zk.Conn
 	group          *synchronization.GroupMember
@@ -39,18 +40,26 @@ func NewBinBack(b *bin_config.BackConfig) *binBack {
 	bBack.keyLocks = make(map[string]*sync.Mutex)
 	bBack.ready = false
 	bBack.ring = node_ring.NewNodeRing(b.Backs, make([]string, 0))
+	bBack.localClock = 0
 
 	return bBack
 }
 
 /* RPC handlers */
 // client RPCs
-func (self *binBack) Clock(_ uint64, ret *uint64) error {
+func (self *binBack) Clock(atLeast uint64, ret *uint64) error {
 	self.localLock.Lock()
 	defer self.localLock.Unlock()
-	clock, e := self.zkClock.GetAndIncrement()
-	*ret = clock
-	return e
+
+	if atLeast > self.localClock {
+		self.localClock = atLeast
+		*ret = atLeast
+	} else {
+		self.localClock++
+		*ret = self.localClock
+	}
+
+	return nil
 }
 
 func (self *binBack) Get(key string, value *string) error {
@@ -79,12 +88,9 @@ func (self *binBack) Set(kv *store.KeyValue, succ *bool) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	self.localLock.Lock()
-	defer self.localLock.Unlock()
-	clock, e := self.zkClock.GetAndIncrement()
-	if e != nil {
-		return e
-	}
+	clock := uint64(0)
+	_ = self.Clock(0, &clock)
+
 	log := CreateLog(kv.Key, "", kv.Value, clock)
 
 	_ = self.sendLogToReplica(log)
@@ -149,12 +155,9 @@ func (self *binBack) ListAppend(kv *store.KeyValue, succ *bool) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	self.localLock.Lock()
-	defer self.localLock.Unlock()
-	clock, e := self.zkClock.GetAndIncrement()
-	if e != nil {
-		return e
-	}
+	clock := uint64(0)
+	_ = self.Clock(0, &clock)
+
 	log := CreateLog(kv.Key, bin_config.ListLogAppend, kv.Value, clock)
 
 	_ = self.sendLogToReplica(log)
@@ -168,19 +171,16 @@ func (self *binBack) ListRemove(kv *store.KeyValue, n *int) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	self.localLock.Lock()
-	defer self.localLock.Unlock()
-	clock, e := self.zkClock.GetAndIncrement()
-	if e != nil {
-		return e
-	}
+	clock := uint64(0)
+	_ = self.Clock(0, &clock)
+
 	log := CreateLog(kv.Key, bin_config.ListLogDelete, kv.Value, clock)
 	logString, _ := utils.ObjectToString(log)
 
 	_ = self.sendLogToReplica(log)
 
 	succ := false
-	e = self.config.Store.ListAppend(store.KV(kv.Key, logString), &succ)
+	e := self.config.Store.ListAppend(store.KV(kv.Key, logString), &succ)
 	if e != nil {
 		return e
 	}
@@ -365,6 +365,8 @@ func (self *binBack) Run() error {
 		self.failOnStart()
 		return e
 	}
+
+	go self.syncClock()
 
 	if self.config.Ready != nil {
 		self.config.Ready <- true
@@ -630,4 +632,17 @@ func (self *binBack) forwardReadRequest(bin string, operation string, input inte
 	}
 
 	return client.callOperation(operation, input, output)
+}
+
+func (self *binBack) syncClock() {
+	for range time.Tick(time.Second) {
+		self.localLock.Lock()
+
+		remoteClock, e := self.zkClock.GetAndIncrement(self.localClock)
+		if e == nil && remoteClock > self.localClock {
+			self.localClock = remoteClock
+		}
+
+		self.localLock.Unlock()
+	}
 }

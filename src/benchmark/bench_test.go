@@ -6,7 +6,6 @@ import (
 	"BinStorageZK/src/trib"
 	"flag"
 	"log"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -14,7 +13,10 @@ import (
 )
 
 var (
-	frc = flag.String("rc", bin_config.DefaultRCPath, "bin storage config file")
+	frc    = flag.String("rc", bin_config.DefaultRCPath, "bin storage config file")
+	users  = make([]string, 0)
+	server = makeServer()
+	ptr    = 0
 )
 
 func ne(e error) {
@@ -34,70 +36,44 @@ func makeServer() trib.Server {
 }
 
 func BenchmarkSignUp(b *testing.B) {
-	server := makeServer()
-	//fmt.Println(strings.ToLower(fake.FirstName()))
+	server.SignUp("fenglu")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := shortuuid.New()
 		a := "a" + strings.ToLower(id[:10])
 		ne(server.SignUp(a))
+		users = append(users, a)
 	}
 }
 
-// func BenchmarkListUsers(b *testing.B) {
-// 	server := makeServer()
-// 	//fmt.Println(b.N)
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		server.ListUsers()
-// 	}
-// }
+func BenchmarkListUsers(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		server.ListUsers()
+	}
+}
 
-// func BenchmarkPost(b *testing.B) {
-// 	server := makeServer()
-// 	clk := uint64(0)
-// 	server.SignUp("h8liu")
+func BenchmarkPost(b *testing.B) {
+	clk := uint64(0)
 
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		server.Post("h8liu", "hello, world"+strconv.Itoa(b.N), clk)
-// 	}
-// }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		server.Post("fenglu", "hello, world", clk)
+	}
+}
 
-// func BenchmarkTribs(b *testing.B) {
-// 	server := makeServer()
-// 	clk := uint64(0)
-// 	server.SignUp("fenglu")
+func BenchmarkTribs(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, _ = server.Tribs("fenglu")
+	}
+}
 
-// 	for i := 0; i < 100; i++ {
-// 		server.Post("fenglu", "hello, world"+strconv.Itoa(i), clk)
-// 	}
-
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		_, _ = server.Tribs("fenglu")
-// 	}
-// }
-
-// func BenchmarkFollow(b *testing.B) {
-// 	server := makeServer()
-// 	//clk := uint64(0)
-// 	server.SignUp("fenglu")
-// 	var s []string
-// 	for i := 0; i < b.N; i++ {
-// 		id := shortuuid.New()
-// 		a := "a" + strings.ToLower(id[:10])
-// 		//fmt.Println(a + " " + strconv.Itoa(b.N))
-// 		s = append(s, a)
-// 		ne(server.SignUp(a))
-// 	}
-
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		server.Follow("fenglu", s[i])
-// 	}
-// }
+func BenchmarkFollow(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		ne(server.Follow("fenglu", users[ptr]))
+		ptr++
+	}
+}
 
 // func BenchmarkUnFollow(b *testing.B) {
 // 	server := makeServer()

@@ -30,9 +30,9 @@ func (self *binSingle) tryConnect() error {
 	return nil
 }
 
-func (self *binSingle) Clock(ret *uint64) error {
+func (self *binSingle) Clock(atLeast uint64, ret *uint64) error {
 	*ret = 0
-	return self.callOperation(bin_config.OperationClock, uint64(0), ret)
+	return self.callOperation(bin_config.OperationClock, atLeast, ret)
 }
 
 func (self *binSingle) Get(key string, value *string) error {
