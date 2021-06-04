@@ -13,10 +13,14 @@ import (
 )
 
 var (
-	frc    = flag.String("rc", bin_config.DefaultRCPath, "bin storage config file")
-	users  = make([]string, 0)
-	server = makeServer()
-	ptr    = 0
+	frc       = flag.String("rc", bin_config.DefaultRCPath, "bin storage config file")
+	users     = make([]string, 0)
+	server    = makeServer()
+	ptr       = 0
+	ptr2      = 0
+	max_idx   = 99
+	demo_user = "fenglu"
+	demo_msg  = "Hello World"
 )
 
 func ne(e error) {
@@ -36,7 +40,7 @@ func makeServer() trib.Server {
 }
 
 func BenchmarkSignUp(b *testing.B) {
-	server.SignUp("fenglu")
+	server.SignUp(demo_user)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -58,121 +62,74 @@ func BenchmarkPost(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		server.Post("fenglu", "hello, world", clk)
+		ne(server.Post(demo_user, demo_msg, clk))
 	}
 }
 
 func BenchmarkTribs(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, _ = server.Tribs("fenglu")
+		_, _ = server.Tribs(demo_user)
 	}
 }
 
 func BenchmarkFollow(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		ne(server.Follow("fenglu", users[ptr]))
+		ne(server.Follow(demo_user, users[ptr]))
 		ptr++
+		if ptr > max_idx {
+			ptr = 0
+		}
 	}
 }
 
-// func BenchmarkUnFollow(b *testing.B) {
-// 	server := makeServer()
-// 	//clk := uint64(0)
-// 	server.SignUp("fenglu")
-// 	var s []string
-// 	for i := 0; i < b.N; i++ {
-// 		id := shortuuid.New()
-// 		a := "a" + strings.ToLower(id[:10])
-// 		//fmt.Println(a + " " + strconv.Itoa(b.N))
-// 		s = append(s, a)
-// 		ne(server.SignUp(a))
-// 	}
+func BenchmarkUnFollow(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		ne(server.Unfollow(demo_user, users[ptr]))
+		ptr++
+		if ptr > max_idx {
+			ptr = 0
+		}
+	}
+}
 
-// 	for i := 0; i < b.N; i++ {
-// 		server.Follow("fenglu", s[i])
-// 	}
+func BenchmarkIsFollowing(b *testing.B) {
+	for i := 0; i < (max_idx+1)/2; i++ {
+		ne(server.Follow(demo_user, users[ptr2]))
+		ptr2++
+		if ptr2 > max_idx {
+			ptr2 = 0
+		}
+	}
 
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		server.Unfollow("fenglu", s[i])
-// 	}
-// }
+	for i := 0; i < b.N; i++ {
+		server.IsFollowing(demo_user, users[ptr])
+		ptr++
+		if ptr > max_idx {
+			ptr = 0
+		}
+	}
+}
 
-// func BenchmarkIsFollowing(b *testing.B) {
-// 	server := makeServer()
-// 	//clk := uint64(0)
-// 	server.SignUp("fenglu")
-// 	var s []string
-// 	for i := 0; i < b.N; i++ {
-// 		id := shortuuid.New()
-// 		a := "a" + strings.ToLower(id[:10])
-// 		//fmt.Println(a + " " + strconv.Itoa(b.N))
-// 		s = append(s, a)
-// 		ne(server.SignUp(a))
-// 	}
+func BenchmarkFollowing(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		server.Following(demo_user)
+	}
+}
 
-// 	for i := 0; i < b.N; i++ {
-// 		server.Follow("fenglu", s[i])
-// 	}
+func BenchmarkHome(b *testing.B) {
+	clk := uint64(0)
+	for i := 0; i <= (max_idx+1)/2; i++ {
+		for j := 0; j <= max_idx; j++ {
+			server.Post(users[ptr], demo_msg, clk)
+		}
+		ptr++
+		if ptr > max_idx {
+			ptr = 0
+		}
+	}
 
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		server.IsFollowing("fenglu", s[i])
-// 	}
-// }
-
-// func BenchmarkFollowing(b *testing.B) {
-// 	server := makeServer()
-// 	//clk := uint64(0)
-// 	server.SignUp("fenglu")
-// 	var s []string
-// 	for i := 0; i < b.N; i++ {
-// 		id := shortuuid.New()
-// 		a := "a" + strings.ToLower(id[:10])
-// 		//fmt.Println(a + " " + strconv.Itoa(b.N))
-// 		s = append(s, a)
-// 		ne(server.SignUp(a))
-// 	}
-
-// 	for i := 0; i < b.N; i++ {
-// 		server.Follow("fenglu", s[i])
-// 	}
-
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		server.Following("fenglu")
-// 	}
-// }
-
-// func BenchmarkHome(b *testing.B) {
-// 	server := makeServer()
-// 	clk := uint64(0)
-// 	server.SignUp("fenglu")
-// 	var s []string
-// 	for i := 0; i < 3; i++ {
-// 		id := shortuuid.New()
-// 		a := "a" + strings.ToLower(id[:10])
-// 		//fmt.Println(a + " " + strconv.Itoa(b.N))
-// 		s = append(s, a)
-// 		ne(server.SignUp(a))
-// 	}
-
-// 	for i := 0; i < 3; i++ {
-// 		for j := 0; j < 100; j++ {
-// 			server.Post(s[i], "hello, world"+strconv.Itoa(j), clk)
-// 		}
-// 	}
-
-// 	for i := 0; i < 100; i++ {
-// 		server.Post("fenglu", "hello, world"+strconv.Itoa(i), clk)
-// 	}
-
-// 	for i := 0; i < 3; i++ {
-// 		server.Follow("fenglu", s[i])
-// 	}
-
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		server.Home("fenglu")
-// 	}
-// }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		server.Home(demo_user)
+	}
+}
