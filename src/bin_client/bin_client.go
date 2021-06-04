@@ -8,13 +8,16 @@ import (
 	"fmt"
 	"github.com/go-zookeeper/zk"
 	"sort"
+	"sync"
 	"time"
 )
 
 type binClient struct {
 	group *synchronization.GroupMember
 	clients map[string]*binSingle
+	clientsLock sync.Mutex
 	bins map[string]*bin
+	binsLock sync.Mutex
 	keepers []string
 	currentMembers []string
 	ring *node_ring.NodeRing
@@ -33,6 +36,9 @@ func NewBinClient(keepers []string, backs []string) *binClient {
 }
 
 func (self *binClient)Bin(name string) store.Storage {
+	self.binsLock.Lock()
+	defer self.binsLock.Unlock()
+
 	b, ok := self.bins[name]
 	if ok {
 		return b
@@ -81,6 +87,9 @@ func (self *binClient) getBinSingleForBin(name string, replica bool) (*binSingle
 		i = 1
 	}
 	addr := self.ring.GetIthForKey(name, i)
+
+	self.clientsLock.Lock()
+	defer self.clientsLock.Unlock()
 
 	c, ok := self.clients[addr]
 	if !ok {
